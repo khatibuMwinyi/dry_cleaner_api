@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/api.test.js",
     "dev": "nodemon server.js"
   },
   "keywords": [],
@@ -20,6 +20,7 @@
     "mongoose": "^9.0.2"
   },
   "devDependencies": {
+    "axios": "^1.13.2",
     "nodemon": "^3.1.11"
   }
 }

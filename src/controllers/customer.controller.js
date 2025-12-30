@@ -5,7 +5,7 @@ export const createCustomer = async (req, res) => {
   res.status(201).json(customer);
 };
 
-export const getCustomers = async (req, res) => {
+export const getCustomers = async (_, res) => {
   const customers = await Customer.find().sort({ createdAt: -1 });
   res.json(customers);
 };

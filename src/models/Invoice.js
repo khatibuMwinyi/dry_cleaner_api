@@ -1,36 +1,43 @@
 import mongoose from "mongoose";
 
+const invoiceItemSchema = new mongoose.Schema(
+  {
+    clothingTypeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ClothingType",
+      required: true
+    },
+    clothingTypeName: String, // snapshot
+    serviceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service",
+      required: true
+    },
+    serviceName: String, // snapshot
+    quantity: { type: Number, required: true },
+    unitPrice: { type: Number, required: true },
+    totalPrice: { type: Number, required: true }
+  },
+  { _id: false }
+);
+
 const invoiceSchema = new mongoose.Schema(
   {
-    customer: {
+    customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
       required: true
     },
-    items: [
-      {
-        clothingType: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "ClothingType",
-          required: true
-        },
-        service: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Service",
-          required: true
-        },
-        quantity: { type: Number, required: true },
-        unitPrice: { type: Number, required: true }
-      }
-    ],
-    subtotal: Number,
+    items: [invoiceItemSchema],
+    subtotal: { type: Number, required: true },
     discount: { type: Number, default: 0 },
-    total: Number,
+    total: { type: Number, required: true },
     paymentStatus: {
       type: String,
       enum: ["PENDING", "PAID"],
       default: "PENDING"
-    }
+    },
+    paidAt: Date
   },
   { timestamps: true }
 );
