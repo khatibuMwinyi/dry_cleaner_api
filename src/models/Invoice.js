@@ -37,7 +37,12 @@ const invoiceSchema = new mongoose.Schema(
       enum: ["PENDING", "PAID"],
       default: "PENDING"
     },
-    paidAt: Date
+    paidAt: Date,
+    checkInDate: {
+      type: Date,
+      default: Date.now
+    },
+    pickupDate: Date
   },
   { timestamps: true }
 );

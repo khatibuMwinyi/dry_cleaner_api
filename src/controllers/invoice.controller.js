@@ -4,7 +4,7 @@ import { buildInvoiceItems } from "../services/invoice.service.js";
 
 export const createInvoice = async (req, res) => {
   try {
-    const { customerId, items, discount = 0 } = req.body;
+    const { customerId, items, discount = 0, pickupDate } = req.body;
 
     if (!customerId || !items?.length) {
       return res.status(400).json({ message: "Invalid invoice data" });
@@ -29,6 +29,8 @@ export const createInvoice = async (req, res) => {
       subtotal,
       discount,
       total,
+      checkInDate: new Date(), // Automatically set to current date
+      pickupDate: pickupDate ? new Date(pickupDate) : undefined,
     });
 
     await invoice.populate("customerId", "name phone email");
