@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   getFinancialAnalytics,
-  getWeeklyAnalytics,
+  getDailyAnalytics,
   getMonthlyAnalytics,
   getTopCustomers,
   getCustomerExpenses,
@@ -10,7 +10,7 @@ import {
 const router = Router();
 
 router.get("/financial", getFinancialAnalytics);
-router.get("/weekly", getWeeklyAnalytics);
+router.get("/daily", getDailyAnalytics);
 router.get("/monthly", getMonthlyAnalytics);
 router.get("/top-customers", getTopCustomers);
 router.get("/customers/:customerId/expenses", getCustomerExpenses);

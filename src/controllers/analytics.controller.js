@@ -86,28 +86,28 @@ export const getFinancialAnalytics = async (req, res) => {
   }
 };
 
-// Get weekly revenue and expenses
-export const getWeeklyAnalytics = async (req, res) => {
+// Get daily revenue and expenses
+export const getDailyAnalytics = async (req, res) => {
   try {
-    const weeks = [];
+    const days = [];
     const now = new Date();
+    
+    // Get last 30 days
+    for (let i = 29; i >= 0; i--) {
+      const dayStart = new Date(now);
+      dayStart.setDate(now.getDate() - i);
+      dayStart.setHours(0, 0, 0, 0);
 
-    for (let i = 0; i < 12; i++) {
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - (i * 7 + 6));
-      weekStart.setHours(0, 0, 0, 0);
-
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
 
       const revenueData = await Invoice.aggregate([
         {
           $match: {
             paymentStatus: "PAID",
             $or: [
-              { paidAt: { $gte: weekStart, $lte: weekEnd } },
-              { $and: [{ paidAt: null }, { createdAt: { $gte: weekStart, $lte: weekEnd } }] }
+              { paidAt: { $gte: dayStart, $lte: dayEnd } },
+              { $and: [{ paidAt: null }, { createdAt: { $gte: dayStart, $lte: dayEnd } }] }
             ],
           },
         },
@@ -122,7 +122,7 @@ export const getWeeklyAnalytics = async (req, res) => {
       const expenseData = await Expense.aggregate([
         {
           $match: {
-            date: { $gte: weekStart, $lte: weekEnd },
+            date: { $gte: dayStart, $lte: dayEnd },
           },
         },
         {
@@ -133,17 +133,20 @@ export const getWeeklyAnalytics = async (req, res) => {
         },
       ]);
 
-      weeks.unshift({
-        week: `Week ${12 - i}`,
-        startDate: weekStart,
-        endDate: weekEnd,
+      const monthName = dayStart.toLocaleString("default", { month: "short" });
+      const dayNumber = dayStart.getDate();
+      
+      days.push({
+        date: dayStart,
+        day: `${dayNumber} ${monthName}`,
+        month: dayStart.toLocaleString("default", { month: "long", year: "numeric" }),
         revenue: revenueData[0]?.total || 0,
         expenses: expenseData[0]?.total || 0,
         profit: (revenueData[0]?.total || 0) - (expenseData[0]?.total || 0),
       });
     }
 
-    res.json(weeks);
+    res.json(days);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
