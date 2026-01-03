@@ -1,6 +1,9 @@
 import Invoice from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
 import { buildInvoiceItems } from "../services/invoice.service.js";
+import { generatePdf } from "../utils/pdf.js";
+import { invoiceTemplate } from "../templates/invoice.template.js";
+import { sendInvoiceEmail } from "../utils/mailer.js";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -88,5 +91,68 @@ export const getInvoicesByCustomer = async (req, res) => {
     res.json(invoices);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+};
+export const generateInvoicePdf = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate("customerId", "name phone email");
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    const html = invoiceTemplate({
+      invoice,
+      company: { name: "Oweru International LTD" }
+    });
+
+    const pdf = await generatePdf(html);
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename=invoice-${invoice._id}.pdf`
+    });
+
+    res.send(pdf);
+  } catch (error) {
+    console.error("PDF generation failed:", error);
+    res.status(500).json({ message: "Failed to generate invoice PDF" });
+  }
+};
+
+export const sendInvoicePdf = async (req, res) => {
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      return res.status(500).json({
+        message: "Email service not configured on server"
+      });
+    }
+
+    const invoice = await Invoice.findById(req.params.id)
+      .populate("customerId", "name phone email");
+
+    if (!invoice || !invoice.customerId.email) {
+      return res.status(400).json({ message: "Customer email missing" });
+    }
+
+    const html = invoiceTemplate({
+      invoice,
+      company: { name: "Oweru International LTD" }
+    });
+
+    const pdf = await generatePdf(html);
+
+    await sendInvoiceEmail({
+      to: invoice.customerId.email,
+      pdf,
+      invoiceId: invoice._id
+    });
+
+    res.json({ message: "Invoice sent successfully" });
+
+  } catch (error) {
+    console.error("Email send failed:", error);
+    res.status(500).json({ message: "Failed to send invoice" });
   }
 };
