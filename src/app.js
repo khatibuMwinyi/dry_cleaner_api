@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import customerRoutes from "./routes/customer.routes.js";
 import serviceRoutes from "./routes/service.routes.js";
 import clothingTypeRoutes from "./routes/clothingType.routes.js";
@@ -12,6 +14,11 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+// Serve generated invoice files from backend/tmp/invoices at /invoices/files
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const invoicesStatic = path.join(__dirname, "..", "..", "tmp", "invoices");
+app.use("/invoices/files", express.static(invoicesStatic));
 app.use("/api/customers", customerRoutes);
 app.use("/api/clothing-types", clothingTypeRoutes);
 app.use("/api/services", serviceRoutes);

@@ -1,149 +1,162 @@
 export const invoiceTemplate = ({ invoice, company }) => {
-  const total = invoice.items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+  const subtotal = invoice.items.reduce(
+    (s, it) => s + (it.price || 0) * (it.quantity || 0),
     0
   );
 
+  const tax = invoice.tax || 0;
+  const taxAmount = +(subtotal * tax).toFixed(2);
+  const total = +(subtotal + taxAmount - (invoice.discount || 0)).toFixed(2);
+
   return `
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      color: #333;
-      padding: 40px;
-      font-size: 14px;
-    }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  body { font-family: Helvetica, Arial, sans-serif; margin:0; }
+  .page { width:210mm; height:297mm; position:relative; }
 
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 40px;
-    }
+  .content {
+    display:flex;
+    min-height: calc(297mm - 140px);
+  }
 
-    .company h2 {
-      margin: 0;
-      color: #1f2937;
-    }
+  .left {
+    width:65%;
+    padding:28px 36px 18px 48px;
+    box-sizing:border-box;
+  }
 
-    .invoice-info {
-      text-align: right;
-    }
+  .right {
+    width:35%;
+    background:#f3dec6;
+    padding:28px;
+    box-sizing:border-box;
+    position:relative;
+  }
 
-    .invoice-info p {
-      margin: 4px 0;
-    }
+  .brand { font-size:56px; font-weight:800; margin:0; }
+  .company-name { font-size:12px; margin-top:6px; }
 
-    .status {
-      font-weight: bold;
-      color: ${
-        invoice.paymentStatus === "PAID" ? "#16a34a" : "#dc2626"
-      };
-    }
+  table { width:100%; border-collapse:collapse; margin-top:28px; }
+  th, td { font-size:12px; padding:8px 6px; text-align:left; }
+  th { font-weight:700; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 30px;
-    }
+  .footer-band {
+    position:absolute;
+    bottom:0;
+    left:0;
+    width:100%;
+    height:140px;
+    background:#eed8bf;
+    display:flex;
+    justify-content:space-between;
+    padding:18px 36px;
+    box-sizing:border-box;
+  }
 
-    table th {
-      background: #f3f4f6;
-      text-align: left;
-      padding: 10px;
-      border-bottom: 2px solid #e5e7eb;
-    }
-
-    table td {
-      padding: 10px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-
-    .total {
-      text-align: right;
-      margin-top: 20px;
-      font-size: 16px;
-      font-weight: bold;
-    }
-
-    .footer {
-      margin-top: 50px;
-      text-align: center;
-      font-size: 12px;
-      color: #6b7280;
-    }
-  </style>
+  .pattern-box {
+    width:180px;
+    background:#d6b37a;
+    background-image:
+      linear-gradient(45deg, rgba(255,255,255,.06) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(255,255,255,.06) 25%, transparent 25%);
+    background-size:20px 20px;
+  }
+</style>
 </head>
 
 <body>
+<div class="page">
 
-  <div class="header">
-    <div class="company">
-      <h2>${company.name}</h2>
-      <p>Professional Dry Cleaning Services</p>
+  <div class="content">
+    <div class="left">
+      <h1 class="brand">Invoice</h1>
+      <div class="company-name">${company.name || ""}</div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Hours</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoice.items
+            .map(
+              (it) => `
+            <tr>
+              <td>${(it.itemName || it.serviceName || "").replace(
+                /</g,
+                "&lt;"
+              )}</td>
+              <td>${it.quantity || 0}</td>
+              <td>$${(it.price || 0).toFixed(2)}</td>
+              <td>$${((it.price || 0) * (it.quantity || 0)).toFixed(2)}</td>
+            </tr>
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
+
+      <div style="width:230px; margin-left:auto; margin-top:16px;">
+        <div style="display:flex; justify-content:space-between;">
+          <span>Subtotal</span><span>$${subtotal.toFixed(2)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+          <span>Tax ${(tax * 100).toFixed(0)}%</span><span>$${taxAmount.toFixed(
+    2
+  )}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-weight:800; margin-top:8px;">
+          <span>Total</span><span>$${total.toFixed(2)}</span>
+        </div>
+      </div>
     </div>
 
-    <div class="invoice-info">
-      <p><strong>Invoice #</strong> ${invoice._id}</p>
-      <p><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString()}</p>
-      <p class="status">
-        ${invoice.paymentStatus === "PAID" ? "PAID ✅" : "PENDING"}
-      </p>
-      ${
-        invoice.paidAt
-          ? `<p><strong>Paid At:</strong> ${new Date(invoice.paidAt).toLocaleDateString()}</p>`
-          : ""
-      }
+    <div class="right">
+      <div style="text-align:right;">
+        <div style="font-weight:800; font-size:22px;">${
+          company.name || ""
+        }</div>
+        <div style="margin-top:12px;">Invoice</div>
+        <div style="margin-top:18px;">#${invoice._id}</div>
+        <div style="margin-top:12px;">
+          Due: ${
+            invoice.dueDate
+              ? new Date(invoice.dueDate).toLocaleDateString()
+              : ""
+          }
+        </div>
+      </div>
+
+      <div style="margin-top:24px; font-size:12px;">
+        <strong>Payment</strong><br/>
+        ${company.name || ""}<br/>
+        Account: ${company.accountNumber || ""}
+      </div>
     </div>
   </div>
 
-  <hr />
-
-  <p><strong>Billed To:</strong></p>
-  <p>
-    ${invoice.customerId.name}<br/>
-    ${invoice.customerId.phone}<br/>
-    ${invoice.customerId.email || ""}
-  </p>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th>Service</th>
-        <th>Qty</th>
-        <th>Price</th>
-        <th>Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${invoice.items
-        .map(
-          (item) => `
-        <tr>
-          <td>${item.itemName}</td>
-          <td>${item.serviceName}</td>
-          <td>${item.quantity}</td>
-          <td>${item.price}</td>
-          <td>${item.price * item.quantity}</td>
-        </tr>
-      `
-        )
-        .join("")}
-    </tbody>
-  </table>
-
-  <div class="total">
-    Total: ${total}
+  <div class="footer-band">
+    <div style="display:flex; gap:14px;">
+      ${company.logo ? `<img src="${company.logo}" width="86"/>` : ""}
+      <div style="font-size:11px;">
+        <strong>${company.name || ""}</strong><br/>
+        ${company.phone || ""}<br/>
+        ${company.email || ""}<br/>
+        ${company.address || ""}
+      </div>
+    </div>
+    <div class="pattern-box"></div>
   </div>
 
-  <div class="footer">
-    Thank you for your business.
-  </div>
-
+</div>
 </body>
 </html>
 `;

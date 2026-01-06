@@ -1,9 +1,39 @@
 import Invoice from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
 import { buildInvoiceItems } from "../services/invoice.service.js";
-import { generatePdf } from "../utils/pdf.js";
-import { invoiceTemplate } from "../templates/invoice.template.js";
+import { generatePdfFromInvoice } from "../utils/pdf.js";
 import { sendInvoiceEmail } from "../utils/mailer.js";
+import fs from "fs";
+import path from "path";
+
+const tryReadLogo = () => {
+  const candidates = [];
+  if (process.env.LOGO_PATH) candidates.push(process.env.LOGO_PATH);
+  // common locations
+  candidates.push(
+    path.resolve(process.cwd(), "backend", "src", "assets", "logo.png")
+  );
+  candidates.push(path.resolve(process.cwd(), "backend", "logo.png"));
+  candidates.push(path.resolve(process.cwd(), "logo.png"));
+  candidates.push(
+    path.resolve(process.cwd(), "frontend", "src", "assets", "logo.png")
+  );
+
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const ext = path.extname(p).toLowerCase().replace(".", "") || "png";
+        const mime = ext === "svg" ? "image/svg+xml" : `image/${ext}`;
+        const buf = fs.readFileSync(p);
+        const b64 = buf.toString("base64");
+        return `data:${mime};base64,${b64}`;
+      }
+    } catch (e) {
+      // continue
+    }
+  }
+  return null;
+};
 
 export const createInvoice = async (req, res) => {
   try {
@@ -95,23 +125,29 @@ export const getInvoicesByCustomer = async (req, res) => {
 };
 export const generateInvoicePdf = async (req, res) => {
   try {
-    const invoice = await Invoice.findById(req.params.id)
-      .populate("customerId", "name phone email");
+    const invoice = await Invoice.findById(req.params.id).populate(
+      "customerId",
+      "name phone email"
+    );
 
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
-    const html = invoiceTemplate({
-      invoice,
-      company: { name: "Oweru International LTD" }
+    const logoData = tryReadLogo();
+    const pdf = await generatePdfFromInvoice(invoice, {
+      name: "Oweru International LTD",
+      accountNumber: process.env.COMPANY_ACCOUNT || "",
+      logo: logoData,
+      phone: process.env.COMPANY_PHONE,
+      email: process.env.COMPANY_EMAIL,
+      address: process.env.COMPANY_ADDRESS,
+      pobox: process.env.COMPANY_POBOX,
+      website: process.env.COMPANY_WEBSITE,
     });
-
-    const pdf = await generatePdf(html);
-
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename=invoice-${invoice._id}.pdf`
+      "Content-Disposition": `inline; filename=invoice-${invoice._id}.pdf`,
     });
 
     res.send(pdf);
@@ -121,36 +157,79 @@ export const generateInvoicePdf = async (req, res) => {
   }
 };
 
+export const generateInvoiceFile = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id).populate(
+      "customerId",
+      "name phone email"
+    );
+
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+    const logoData = tryReadLogo();
+    const pdfBuffer = await generatePdfFromInvoice(invoice, {
+      name: "Oweru International LTD",
+      accountNumber: process.env.COMPANY_ACCOUNT || "",
+      logo: logoData,
+      phone: process.env.COMPANY_PHONE,
+      email: process.env.COMPANY_EMAIL,
+      address: process.env.COMPANY_ADDRESS,
+      pobox: process.env.COMPANY_POBOX,
+      website: process.env.COMPANY_WEBSITE,
+    });
+
+    const outDir = path.resolve(process.cwd(), "tmp", "invoices");
+    fs.mkdirSync(outDir, { recursive: true });
+    const outPath = path.join(outDir, `${invoice._id}.pdf`);
+    fs.writeFileSync(outPath, pdfBuffer);
+
+    const baseUrl =
+      process.env.SERVER_URL || `${req.protocol}://${req.get("host")}`;
+    const publicUrl = `${baseUrl}/invoices/files/${invoice._id}.pdf`;
+
+    res.json({ url: publicUrl, path: outPath });
+  } catch (error) {
+    console.error("Failed saving invoice PDF:", error);
+    res.status(500).json({ message: "Failed to create invoice file" });
+  }
+};
+
 export const sendInvoicePdf = async (req, res) => {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       return res.status(500).json({
-        message: "Email service not configured on server"
+        message: "Email service not configured on server",
       });
     }
 
-    const invoice = await Invoice.findById(req.params.id)
-      .populate("customerId", "name phone email");
+    const invoice = await Invoice.findById(req.params.id).populate(
+      "customerId",
+      "name phone email"
+    );
 
     if (!invoice || !invoice.customerId.email) {
       return res.status(400).json({ message: "Customer email missing" });
     }
 
-    const html = invoiceTemplate({
-      invoice,
-      company: { name: "Oweru International LTD" }
+    const logoData = tryReadLogo();
+    const pdf = await generatePdfFromInvoice(invoice, {
+      name: "Oweru International LTD",
+      accountNumber: process.env.COMPANY_ACCOUNT || "",
+      logo: logoData,
+      phone: process.env.COMPANY_PHONE,
+      email: process.env.COMPANY_EMAIL,
+      address: process.env.COMPANY_ADDRESS,
+      pobox: process.env.COMPANY_POBOX,
+      website: process.env.COMPANY_WEBSITE,
     });
-
-    const pdf = await generatePdf(html);
 
     await sendInvoiceEmail({
       to: invoice.customerId.email,
       pdf,
-      invoiceId: invoice._id
+      invoiceId: invoice._id,
     });
 
     res.json({ message: "Invoice sent successfully" });
-
   } catch (error) {
     console.error("Email send failed:", error);
     res.status(500).json({ message: "Failed to send invoice" });
