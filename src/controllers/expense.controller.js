@@ -2,7 +2,7 @@ import Expense from "../models/Expense.js";
 
 export const createExpense = async (req, res) => {
   try {
-    const { category, amount, description, date } = req.body;
+    const { category, amount, description, date, receiptNumber, receiptScreenshot } = req.body;
 
     if (!category || !amount || amount <= 0) {
       return res.status(400).json({ message: "Invalid expense data" });
@@ -12,6 +12,8 @@ export const createExpense = async (req, res) => {
       category,
       amount,
       description,
+      receiptNumber,
+      receiptScreenshot,
       date: date ? new Date(date) : new Date(),
     });
 
@@ -57,7 +59,7 @@ export const getExpenseById = async (req, res) => {
 
 export const updateExpense = async (req, res) => {
   try {
-    const { category, amount, description, date } = req.body;
+    const { category, amount, description, date, receiptNumber, receiptScreenshot } = req.body;
 
     const expense = await Expense.findById(req.params.id);
     if (!expense) {
@@ -72,6 +74,8 @@ export const updateExpense = async (req, res) => {
       expense.amount = amount;
     }
     if (description !== undefined) expense.description = description;
+    if (receiptNumber !== undefined) expense.receiptNumber = receiptNumber;
+    if (receiptScreenshot !== undefined) expense.receiptScreenshot = receiptScreenshot;
     if (date) expense.date = new Date(date);
 
     await expense.save();
