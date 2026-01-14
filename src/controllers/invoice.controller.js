@@ -2,7 +2,7 @@ import Invoice from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
 import { buildInvoiceItems } from "../services/invoice.service.js";
 import { generatePdfFromInvoice } from "../utils/pdf.js";
-import { sendInvoiceEmail } from "../utils/mailer.js";
+import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import fs from "fs";
 import path from "path";
 
@@ -194,44 +194,42 @@ export const generateInvoiceFile = async (req, res) => {
   }
 };
 
-export const sendInvoicePdf = async (req, res) => {
-  try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      return res.status(500).json({
-        message: "Email service not configured on server",
-      });
-    }
+export const sendInvoiceViaWhatsAppLink = async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id).populate({
+    path: "customerId",
+    select: "name phone email",
+  });
 
-    const invoice = await Invoice.findById(req.params.id).populate(
-      "customerId",
-      "name phone email"
-    );
-
-    if (!invoice || !invoice.customerId.email) {
-      return res.status(400).json({ message: "Customer email missing" });
-    }
-
-    const logoData = tryReadLogo();
-    const pdf = await generatePdfFromInvoice(invoice, {
-      name: "Oweru International LTD",
-      accountNumber: process.env.COMPANY_ACCOUNT || "",
-      logo: logoData,
-      phone: process.env.COMPANY_PHONE,
-      email: process.env.COMPANY_EMAIL,
-      address: process.env.COMPANY_ADDRESS,
-      pobox: process.env.COMPANY_POBOX,
-      website: process.env.COMPANY_WEBSITE,
-    });
-
-    await sendInvoiceEmail({
-      to: invoice.customerId.email,
-      pdf,
-      invoiceId: invoice._id,
-    });
-
-    res.json({ message: "Invoice sent successfully" });
-  } catch (error) {
-    console.error("Email send failed:", error);
-    res.status(500).json({ message: "Failed to send invoice" });
+  if (!invoice) {
+    return res.status(404).json({ message: "Invoice not found" });
   }
+
+  // 1. Generate PDF
+  const pdfBuffer = await generatePdfFromInvoice(invoice);
+
+  // 2. Upload PDF
+  const result = await uploadToCloudinary(pdfBuffer);
+ 
+
+  // 3. WhatsApp message
+  const phone = invoice.customerId.phone; // international format
+  const message = `
+Hello ${invoice.customerId.name},
+Here is your invoice from ${invoice.companyName}.
+
+Invoice No: ${invoice.invoiceNumber}
+Total: ${invoice.total} TZS
+
+Download PDF:
+${result.secure_url}
+  `.trim();
+
+  const whatsappLink = `https://wa.me/${phone}?text=${encodeURIComponent(
+    message
+  )}`;
+
+  res.json({
+    success: true,
+    whatsappLink,
+  });
 };

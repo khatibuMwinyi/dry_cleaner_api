@@ -5,7 +5,7 @@ import {
   getInvoiceById,
   getInvoicesByCustomer,
   generateInvoicePdf,
-  sendInvoicePdf,
+  sendInvoiceViaWhatsAppLink,
   generateInvoiceFile,
 } from "../controllers/invoice.controller.js";
 import { markInvoiceAsPaid } from "../controllers/invoice.update.controller.js";
@@ -19,6 +19,6 @@ router.get("/:id", getInvoiceById);
 router.post("/:id/pay", markInvoiceAsPaid);
 router.get("/:id/pdf", generateInvoicePdf);
 router.get("/:id/file", generateInvoiceFile);
-router.post("/:id/send", sendInvoicePdf);
+router.post("/:id/send-whatsapp", sendInvoiceViaWhatsAppLink);
 
 export default router;
