@@ -215,9 +215,8 @@ export const sendInvoiceViaWhatsAppLink = async (req, res) => {
   const phone = invoice.customerId.phone; // international format
   const message = `
 Hello ${invoice.customerId.name},
-Here is your invoice from ${invoice.companyName}.
-
-Invoice No: ${invoice.invoiceNumber}
+Here is your invoice from Oweru International LTD.
+Invoice ID: ${invoice._id}
 Total: ${invoice.total} TZS
 
 Download PDF:
