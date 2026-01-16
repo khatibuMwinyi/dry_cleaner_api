@@ -2,9 +2,10 @@ import Invoice from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
 import { buildInvoiceItems } from "../services/invoice.service.js";
 import { generatePdfFromInvoice } from "../utils/pdf.js";
-import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import fs from "fs";
 import path from "path";
+
+const ROOT_DIR = path.resolve(process.cwd());
 
 const tryReadLogo = () => {
   const candidates = [];
@@ -164,71 +165,66 @@ export const generateInvoiceFile = async (req, res) => {
       "name phone email"
     );
 
-    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
 
-    const logoData = tryReadLogo();
-    const pdfBuffer = await generatePdfFromInvoice(invoice, {
-      name: "Oweru International LTD",
-      accountNumber: process.env.COMPANY_ACCOUNT || "",
-      logo: logoData,
-      phone: process.env.COMPANY_PHONE,
-      email: process.env.COMPANY_EMAIL,
-      address: process.env.COMPANY_ADDRESS,
-      pobox: process.env.COMPANY_POBOX,
-      website: process.env.COMPANY_WEBSITE,
-    });
+    const pdfBuffer = await generatePdfFromInvoice(invoice);
 
-    const outDir = path.resolve(process.cwd(), "tmp", "invoices");
+    const outDir = path.join(ROOT_DIR, "tmp", "invoices");
     fs.mkdirSync(outDir, { recursive: true });
+
     const outPath = path.join(outDir, `${invoice._id}.pdf`);
     fs.writeFileSync(outPath, pdfBuffer);
 
-    const baseUrl =
-      process.env.SERVER_URL || `${req.protocol}://${req.get("host")}`;
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
     const publicUrl = `${baseUrl}/invoices/files/${invoice._id}.pdf`;
 
-    res.json({ url: publicUrl, path: outPath });
-  } catch (error) {
-    console.error("Failed saving invoice PDF:", error);
-    res.status(500).json({ message: "Failed to create invoice file" });
+    res.json({ success: true, url: publicUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to generate invoice" });
   }
 };
 
 export const sendInvoiceViaWhatsAppLink = async (req, res) => {
-  const invoice = await Invoice.findById(req.params.id).populate({
-    path: "customerId",
-    select: "name phone email",
-  });
+  const invoice = await Invoice.findById(req.params.id).populate(
+    "customerId",
+    "name phone"
+  );
 
   if (!invoice) {
     return res.status(404).json({ message: "Invoice not found" });
   }
 
-  // 1. Generate PDF
+  // 1️⃣ Generate + save PDF FIRST
   const pdfBuffer = await generatePdfFromInvoice(invoice);
 
-  // 2. Upload PDF
-  const result = await uploadToCloudinary(pdfBuffer);
- 
+  const outDir = path.join(ROOT_DIR, "tmp", "invoices");
+  fs.mkdirSync(outDir, { recursive: true });
 
-  // 3. WhatsApp message
-  const phone = invoice.customerId.phone; // international format
+  const outPath = path.join(outDir, `${invoice._id}.pdf`);
+  fs.writeFileSync(outPath, pdfBuffer);
+
+  // 2️⃣ Build public URL
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const pdfUrl = `${baseUrl}/invoices/files/${invoice._id}.pdf`;
+
+  // 3️⃣ WhatsApp message
   const message = `
 Hello ${invoice.customerId.name},
 Here is your invoice from Oweru International LTD.
+
 Invoice ID: ${invoice._id}
 Total: ${invoice.total} TZS
 
-Download PDF:
-${result.secure_url}
+Download PDF: 
+${pdfUrl}
   `.trim();
 
-  const whatsappLink = `https://wa.me/${phone}?text=${encodeURIComponent(
-    message
-  )}`;
+  const whatsappLink = `https://wa.me/${
+    invoice.customerId.phone
+  }?text=${encodeURIComponent(message)}`;
 
-  res.json({
-    success: true,
-    whatsappLink,
-  });
+  res.json({ success: true, whatsappLink });
 };
