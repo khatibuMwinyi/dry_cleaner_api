@@ -2,6 +2,7 @@ import Invoice from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
 import { buildInvoiceItems } from "../services/invoice.service.js";
 import { generatePdfFromInvoice } from "../utils/pdf.js";
+import { ensureInvoicePdfFile } from "../utils/invoiceFile.helper.js";
 import fs from "fs";
 import path from "path";
 
@@ -12,12 +13,12 @@ const tryReadLogo = () => {
   if (process.env.LOGO_PATH) candidates.push(process.env.LOGO_PATH);
   // common locations
   candidates.push(
-    path.resolve(process.cwd(), "backend", "src", "assets", "logo.png")
+    path.resolve(process.cwd(), "backend", "src", "assets", "logo.png"),
   );
   candidates.push(path.resolve(process.cwd(), "backend", "logo.png"));
   candidates.push(path.resolve(process.cwd(), "logo.png"));
   candidates.push(
-    path.resolve(process.cwd(), "frontend", "src", "assets", "logo.png")
+    path.resolve(process.cwd(), "frontend", "src", "assets", "logo.png"),
   );
 
   for (const p of candidates) {
@@ -101,7 +102,7 @@ export const getInvoiceById = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id).populate(
       "customerId",
-      "name phone email"
+      "name phone email",
     );
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
@@ -128,7 +129,7 @@ export const generateInvoicePdf = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id).populate(
       "customerId",
-      "name phone email"
+      "name phone email",
     );
 
     if (!invoice) {
@@ -160,27 +161,33 @@ export const generateInvoicePdf = async (req, res) => {
 
 export const generateInvoiceFile = async (req, res) => {
   try {
-    const invoice = await Invoice.findById(req.params.id).populate(
-      "customerId",
-      "name phone email"
-    );
-
+    const invoice = await Invoice.findById(req.params.id);
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
-    const pdfBuffer = await generatePdfFromInvoice(invoice);
-
-    const outDir = path.join(ROOT_DIR, "tmp", "invoices");
-    fs.mkdirSync(outDir, { recursive: true });
-
+    const outDir = path.join(process.cwd(), "tmp", "invoices");
     const outPath = path.join(outDir, `${invoice._id}.pdf`);
+
+    // ✅ If file already exists, just return URL
+    if (fs.existsSync(outPath)) {
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      return res.json({
+        success: true,
+        url: `${baseUrl}/invoices/files/${invoice._id}.pdf`,
+      });
+    }
+
+    // Otherwise generate
+    const pdfBuffer = await generatePdfFromInvoice(invoice);
+    fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(outPath, pdfBuffer);
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const publicUrl = `${baseUrl}/invoices/files/${invoice._id}.pdf`;
-
-    res.json({ success: true, url: publicUrl });
+    res.json({
+      success: true,
+      url: `${baseUrl}/invoices/files/${invoice._id}.pdf`,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to generate invoice" });
@@ -188,43 +195,49 @@ export const generateInvoiceFile = async (req, res) => {
 };
 
 export const sendInvoiceViaWhatsAppLink = async (req, res) => {
-  const invoice = await Invoice.findById(req.params.id).populate(
-    "customerId",
-    "name phone"
-  );
+  try {
+    const invoice = await Invoice.findById(req.params.id).populate(
+      "customerId",
+      "name phone",
+    );
 
-  if (!invoice) {
-    return res.status(404).json({ message: "Invoice not found" });
-  }
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
 
-  // 1️⃣ Generate + save PDF FIRST
-  const pdfBuffer = await generatePdfFromInvoice(invoice);
+    const outDir = path.join(ROOT_DIR, "tmp", "invoices");
+    const outPath = path.join(outDir, `${invoice._id}.pdf`);
 
-  const outDir = path.join(ROOT_DIR, "tmp", "invoices");
-  fs.mkdirSync(outDir, { recursive: true });
+    // 🔑 Ensure directory exists
+    fs.mkdirSync(outDir, { recursive: true });
 
-  const outPath = path.join(outDir, `${invoice._id}.pdf`);
-  fs.writeFileSync(outPath, pdfBuffer);
+    // 🔑 Generate file IF missing
+    if (!fs.existsSync(outPath)) {
+      const pdfBuffer = await generatePdfFromInvoice(invoice);
+      fs.writeFileSync(outPath, pdfBuffer);
+    }
 
-  // 2️⃣ Build public URL
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
-  const pdfUrl = `${baseUrl}/invoices/files/${invoice._id}.pdf`;
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const pdfUrl = `${baseUrl}/invoices/files/${invoice._id}.pdf`;
 
-  // 3️⃣ WhatsApp message
-  const message = `
+    const message = `
 Hello ${invoice.customerId.name},
 Here is your invoice from Oweru International LTD.
 
 Invoice ID: ${invoice._id}
 Total: ${invoice.total} TZS
 
-Download PDF: 
+Download PDF:
 ${pdfUrl}
-  `.trim();
+    `.trim();
 
-  const whatsappLink = `https://wa.me/${
-    invoice.customerId.phone
-  }?text=${encodeURIComponent(message)}`;
+    const whatsappLink = `https://wa.me/${
+      invoice.customerId.phone
+    }?text=${encodeURIComponent(message)}`;
 
-  res.json({ success: true, whatsappLink });
+    res.json({ success: true, whatsappLink });
+  } catch (err) {
+    console.error("WhatsApp send error:", err);
+    res.status(500).json({ message: "Failed to prepare WhatsApp invoice" });
+  }
 };

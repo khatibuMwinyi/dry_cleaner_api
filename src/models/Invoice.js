@@ -5,20 +5,38 @@ const invoiceItemSchema = new mongoose.Schema(
     clothingTypeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ClothingType",
-      required: true
+      required: true,
     },
-    clothingTypeName: String, // snapshot
+    clothingTypeName: {
+      type: String,
+      required: true,
+    },
     serviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Service",
-      required: true
+      required: true,
     },
-    serviceName: String, // snapshot
-    quantity: { type: Number, required: true },
-    unitPrice: { type: Number, required: true },
-    totalPrice: { type: Number, required: true }
+    serviceName: {
+      type: String,
+      required: true,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    unitPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    totalPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const invoiceSchema = new mongoose.Schema(
@@ -26,25 +44,50 @@ const invoiceSchema = new mongoose.Schema(
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
-      required: true
+      required: true,
     },
-    items: [invoiceItemSchema],
-    subtotal: { type: Number, required: true },
-    discount: { type: Number, default: 0 },
-    total: { type: Number, required: true },
+
+    items: {
+      type: [invoiceItemSchema],
+      required: true,
+    },
+
+    subtotal: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    discount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    total: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
     paymentStatus: {
       type: String,
-      enum: ["PENDING", "PAID"],
-      default: "PENDING"
+      enum: ["UNPAID", "PAID"],
+      default: "UNPAID",
     },
-    paidAt: Date,
+
     checkInDate: {
       type: Date,
-      default: Date.now
+      default: Date.now,
     },
-    pickupDate: Date
+
+    pickupDate: {
+      type: Date,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true, // createdAt & updatedAt
+  },
 );
 
 export default mongoose.model("Invoice", invoiceSchema);
