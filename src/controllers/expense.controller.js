@@ -1,47 +1,42 @@
 import Expense from "../models/Expense.js";
+import cloudinary from "../config/cloudinary.js";
 
 export const createExpense = async (req, res) => {
   try {
-    const { category, amount, description, date, receiptNumber, receiptScreenshot } = req.body;
+    const { category, amount, description, date } = req.body;
 
-    if (!category || !amount || amount <= 0) {
-      return res.status(400).json({ message: "Invalid expense data" });
+    // Hard validation (no silent bugs)
+    if (!category || !amount || !date) {
+      return res.status(400).json({
+        message: "category, amount and date are required",
+      });
     }
 
-    const expense = await Expense.create({
-      category,
-      amount,
-      description,
-      receiptNumber,
-      receiptScreenshot,
-      date: date ? new Date(date) : new Date(),
+    const expense = new Expense({
+      category: category.trim(),
+      amount: Number(amount),
+      description: description?.trim(),
+      date: new Date(date),
+      receiptUrl: req.file?.path || null, // Cloudinary URL
     });
 
-    res.status(201).json(expense);
+    const savedExpense = await expense.save();
+    res.status(201).json(savedExpense);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Create expense error:", error);
+    res.status(500).json({
+      message: "Failed to create expense",
+      error: error.message,
+    });
   }
 };
 
 export const getExpenses = async (req, res) => {
   try {
-    const { startDate, endDate, category } = req.query;
-    const query = {};
-
-    if (startDate || endDate) {
-      query.date = {};
-      if (startDate) query.date.$gte = new Date(startDate);
-      if (endDate) query.date.$lte = new Date(endDate);
-    }
-
-    if (category) {
-      query.category = category;
-    }
-
-    const expenses = await Expense.find(query).sort({ date: -1 });
+    const expenses = await Expense.find().sort({ date: -1 });
     res.json(expenses);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: "Failed to fetch expenses" });
   }
 };
 
@@ -53,51 +48,52 @@ export const getExpenseById = async (req, res) => {
     }
     res.json(expense);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: "Failed to fetch expense" });
   }
 };
 
 export const updateExpense = async (req, res) => {
   try {
-    const { category, amount, description, date, receiptNumber, receiptScreenshot } = req.body;
+    const updated = await Expense.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...req.body,
+        receiptUrl: req.file?.path || req.body.receiptUrl,
+      },
+      { new: true },
+    );
 
-    const expense = await Expense.findById(req.params.id);
-    if (!expense) {
-      return res.status(404).json({ message: "Expense not found" });
-    }
-
-    if (category) expense.category = category;
-    if (amount !== undefined) {
-      if (amount <= 0) {
-        return res.status(400).json({ message: "Amount must be positive" });
-      }
-      expense.amount = amount;
-    }
-    if (description !== undefined) expense.description = description;
-    if (receiptNumber !== undefined) expense.receiptNumber = receiptNumber;
-    if (receiptScreenshot !== undefined) expense.receiptScreenshot = receiptScreenshot;
-    if (date) expense.date = new Date(date);
-
-    await expense.save();
-    res.json(expense);
+    res.json(updated);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: "Failed to update expense" });
   }
 };
 
 export const deleteExpense = async (req, res) => {
   try {
-    const expense = await Expense.findByIdAndDelete(req.params.id);
+    const expense = await Expense.findById(req.params.id);
+
     if (!expense) {
       return res.status(404).json({ message: "Expense not found" });
     }
-    res.json({ message: "Expense deleted successfully" });
+
+    // Delete receipt from Cloudinary if it exists
+    if (expense.receiptUrl) {
+      try {
+        const publicId = expense.receiptUrl.split("/").pop().split(".")[0];
+
+        await cloudinary.uploader.destroy(`expenses/receipts/${publicId}`);
+      } catch (cloudinaryError) {
+        console.error("Cloudinary delete failed:", cloudinaryError.message);
+        // DO NOT fail the request because of storage
+      }
+    }
+
+    await expense.deleteOne();
+
+    res.json({ message: "Expense deleted" });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Delete expense error:", error);
+    res.status(500).json({ message: "Failed to delete expense" });
   }
 };
-
-
-
-
-

@@ -4,12 +4,14 @@ const expenseSchema = new mongoose.Schema(
   {
     category: { type: String, required: true },
     amount: { type: Number, required: true },
-    description: String,
-    receiptNumber: String,
-    receiptScreenshot: String,
-    date: { type: Date, default: Date.now }
+    description: { type: String },
+    date: { type: Date, required: true },
+
+    receiptUrl: {
+      type: String,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Expense", expenseSchema);

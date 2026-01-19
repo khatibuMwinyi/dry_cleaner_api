@@ -6,18 +6,14 @@ import {
   updateExpense,
   deleteExpense,
 } from "../controllers/expense.controller.js";
+import uploadReceipt from "../middleware/uploadReceipt.js";
 
 const router = Router();
 
-router.post("/", createExpense);
+router.post("/", uploadReceipt.single("receipt"), createExpense);
 router.get("/", getExpenses);
 router.get("/:id", getExpenseById);
-router.put("/:id", updateExpense);
+router.put("/:id", uploadReceipt.single("receipt"), updateExpense);
 router.delete("/:id", deleteExpense);
 
 export default router;
-
-
-
-
-

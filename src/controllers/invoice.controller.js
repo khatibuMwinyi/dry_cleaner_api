@@ -2,7 +2,6 @@ import Invoice from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
 import { buildInvoiceItems } from "../services/invoice.service.js";
 import { generatePdfFromInvoice } from "../utils/pdf.js";
-import { ensureInvoicePdfFile } from "../utils/invoiceFile.helper.js";
 import fs from "fs";
 import path from "path";
 
