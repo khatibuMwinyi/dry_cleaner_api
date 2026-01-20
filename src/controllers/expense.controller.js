@@ -1,37 +1,68 @@
 import Expense from "../models/Expense.js";
+import Inventory from "../models/Inventory.js";
+import InventoryConsumption from "../models/InventoryConsumption.js";
 import cloudinary from "../config/cloudinary.js";
 
 export const createExpense = async (req, res) => {
   try {
-    const { category, amount, description, date } = req.body;
+    const {
+      category,
+      amount,
+      description,
+      date,
+      inventoryUsage = [],
+    } = req.body;
 
-    // Hard validation (no silent bugs)
     if (!category || !amount || !date) {
       return res.status(400).json({
         message: "category, amount and date are required",
       });
     }
 
-    const expense = new Expense({
-      category: category.trim(),
-      amount: Number(amount),
-      description: description?.trim(),
-      date: new Date(date),
-      receiptUrl: req.file?.path || null, // Cloudinary URL
+    const expense = await Expense.create({
+      category,
+      amount,
+      description,
+      date,
+      receiptUrl: req.file?.path || null,
       receiptPublicId: req.file?.filename || null,
     });
 
-    const savedExpense = await expense.save();
-    res.status(201).json(savedExpense);
+    //  INVENTORY CONSUMPTION
+    for (const usage of inventoryUsage) {
+      const inventory = await Inventory.findById(usage.inventoryId);
+
+      if (!inventory) {
+        throw new Error("Inventory item not found");
+      }
+
+      if (inventory.quantity < usage.quantityUsed) {
+        throw new Error(
+          `Not enough stock for ${inventory.name}`
+        );
+      }
+
+      // decrement inventory
+      inventory.quantity -= usage.quantityUsed;
+      await inventory.save();
+
+      // record consumption
+      await InventoryConsumption.create({
+        inventory: inventory._id,
+        quantityUsed: usage.quantityUsed,
+        sourceType: "EXPENSE",
+        sourceId: expense._id,
+      });
+    }
+
+    res.status(201).json(expense);
   } catch (error) {
     console.error("Create expense error:", error);
     res.status(500).json({
-      message: "Failed to create expense",
-      error: error.message,
+      message: error.message || "Failed to create expense",
     });
   }
 };
-
 export const getExpenses = async (req, res) => {
   try {
     const expenses = await Expense.find({ isDeleted: false }).sort({

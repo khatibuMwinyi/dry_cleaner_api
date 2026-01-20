@@ -1,100 +1,128 @@
+import mongoose from "mongoose";
 import Inventory from "../models/Inventory.js";
 
+// CREATE
 export const createInventory = async (req, res) => {
   try {
     const { name, quantity, unit, reorderLevel } = req.body;
 
-    if (!name || quantity === undefined || quantity < 0) {
-      return res.status(400).json({ message: "Invalid inventory data" });
+    if (!name || quantity == null) {
+      return res.status(400).json({ message: "Name and quantity are required" });
     }
 
-    const inventory = await Inventory.create({
-      name,
-      quantity,
-      unit,
-      reorderLevel,
+    const item = await Inventory.create({
+      name: name.trim(),
+      quantity: Number(quantity),
+      unit: unit?.trim() || null,
+      reorderLevel:
+        reorderLevel != null ? Number(reorderLevel) : null,
     });
 
-    res.status(201).json(inventory);
+    res.status(201).json(item);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Create inventory error:", error);
+    res.status(500).json({ message: "Failed to create inventory item" });
   }
 };
 
+// READ ALL
 export const getInventories = async (req, res) => {
   try {
-    const inventories = await Inventory.find().sort({ name: 1 });
-    res.json(inventories);
+    const items = await Inventory.find().sort({ createdAt: -1 });
+    res.json(items);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Fetch inventory error:", error);
+    res.status(500).json({ message: "Failed to fetch inventory" });
   }
 };
 
+// READ ONE
 export const getInventoryById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid inventory ID" });
+  }
+
   try {
-    const inventory = await Inventory.findById(req.params.id);
-    if (!inventory) {
-      return res.status(404).json({ message: "Inventory item not found" });
+    const item = await Inventory.findById(id);
+    if (!item) {
+      return res.status(404).json({ message: "Inventory not found" });
     }
-    res.json(inventory);
+
+    res.json(item);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Fetch inventory by ID error:", error);
+    res.status(500).json({ message: "Failed to fetch inventory item" });
   }
 };
 
+// UPDATE
 export const updateInventory = async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid inventory ID" });
+  }
+
   try {
-    const { name, quantity, unit, reorderLevel } = req.body;
+    const updated = await Inventory.findByIdAndUpdate(
+      id,
+      {
+        ...req.body,
+        quantity:
+          req.body.quantity != null ? Number(req.body.quantity) : undefined,
+        reorderLevel:
+          req.body.reorderLevel != null
+            ? Number(req.body.reorderLevel)
+            : undefined,
+      },
+      { new: true, runValidators: true }
+    );
 
-    const inventory = await Inventory.findById(req.params.id);
-    if (!inventory) {
-      return res.status(404).json({ message: "Inventory item not found" });
+    if (!updated) {
+      return res.status(404).json({ message: "Inventory not found" });
     }
 
-    if (name) inventory.name = name;
-    if (quantity !== undefined) {
-      if (quantity < 0) {
-        return res.status(400).json({ message: "Quantity cannot be negative" });
-      }
-      inventory.quantity = quantity;
-    }
-    if (unit !== undefined) inventory.unit = unit;
-    if (reorderLevel !== undefined) inventory.reorderLevel = reorderLevel;
-
-    await inventory.save();
-    res.json(inventory);
+    res.json(updated);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Update inventory error:", error);
+    res.status(500).json({ message: "Failed to update inventory" });
   }
 };
 
+// DELETE
 export const deleteInventory = async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid inventory ID" });
+  }
+
   try {
-    const inventory = await Inventory.findByIdAndDelete(req.params.id);
-    if (!inventory) {
-      return res.status(404).json({ message: "Inventory item not found" });
+    const deleted = await Inventory.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Inventory not found" });
     }
-    res.json({ message: "Inventory item deleted successfully" });
+
+    res.json({ message: "Inventory deleted" });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Delete inventory error:", error);
+    res.status(500).json({ message: "Failed to delete inventory" });
   }
 };
 
+// LOW STOCK
 export const getLowStockItems = async (req, res) => {
   try {
     const items = await Inventory.find({
-      $expr: {
-        $lte: ["$quantity", "$reorderLevel"],
-      },
-    }).sort({ quantity: 1 });
+      reorderLevel: { $ne: null },
+      $expr: { $lte: ["$quantity", "$reorderLevel"] },
+    });
 
     res.json(items);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Low stock error:", error);
+    res.status(500).json({ message: "Failed to fetch low stock items" });
   }
 };
-
-
-
-
-
