@@ -18,6 +18,7 @@ export const createExpense = async (req, res) => {
       description: description?.trim(),
       date: new Date(date),
       receiptUrl: req.file?.path || null, // Cloudinary URL
+      receiptPublicId: req.file?.filename || null,
     });
 
     const savedExpense = await expense.save();
@@ -33,7 +34,9 @@ export const createExpense = async (req, res) => {
 
 export const getExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find().sort({ date: -1 });
+    const expenses = await Expense.find({ isDeleted: false }).sort({
+      date: -1,
+    });
     res.json(expenses);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch expenses" });
@@ -73,27 +76,30 @@ export const deleteExpense = async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.id);
 
+    // Idempotent delete
     if (!expense) {
-      return res.status(404).json({ message: "Expense not found" });
+      return res.json({ message: "Expense already deleted" });
     }
 
-    // Delete receipt from Cloudinary if it exists
-    if (expense.receiptUrl) {
+    // Delete receipt from Cloudinary FIRST
+    if (expense.receiptPublicId) {
       try {
-        const publicId = expense.receiptUrl.split("/").pop().split(".")[0];
-
-        await cloudinary.uploader.destroy(`expenses/receipts/${publicId}`);
-      } catch (cloudinaryError) {
-        console.error("Cloudinary delete failed:", cloudinaryError.message);
-        // DO NOT fail the request because of storage
+        await cloudinary.uploader.destroy(expense.receiptPublicId);
+      } catch (err) {
+        console.error("Cloudinary delete failed:", err.message);
+        // We still continue — user intent is delete
       }
     }
 
-    await expense.deleteOne();
+    // Delete from DB
+    await Expense.findByIdAndDelete(expense._id);
 
-    res.json({ message: "Expense deleted" });
+    res.json({ message: "Expense deleted successfully" });
   } catch (error) {
     console.error("Delete expense error:", error);
-    res.status(500).json({ message: "Failed to delete expense" });
+    res.status(500).json({
+      message: "Failed to delete expense",
+      error: error.message,
+    });
   }
 };
