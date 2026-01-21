@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Service from "../models/Service.js";
 import Inventory from "../models/Inventory.js";
 import InventoryConsumption from "../models/InventoryConsumption.js";
-
+import ServiceExecution from "../models/ServiceExecution.js";
 export const createService = async (req, res) => {
   try {
     const { name, basePrice, inventoryUsage = [] } = req.body;
@@ -109,4 +109,12 @@ export const deleteService = async (req, res) => {
     console.error("Delete service error:", error);
     res.status(500).json({ message: "Failed to delete service" });
   }
+};
+export const getServiceExecutions = async (req, res) => {
+  const executions = await ServiceExecution.find()
+    .populate("service", "name")
+    .populate("consumables.inventory", "name unit")
+    .sort({ createdAt: -1 });
+
+  res.json(executions);
 };

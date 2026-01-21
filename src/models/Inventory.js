@@ -41,4 +41,17 @@ inventorySchema.pre("save", function (next) {
   next();
 });
 
+// CENTRALIZED inventory consumption logic
+inventorySchema.methods.consume = function (amount) {
+  if (amount <= 0) {
+    throw new Error("Consumption amount must be positive");
+  }
+
+  if (this.quantity < amount) {
+    throw new Error(`Insufficient stock for ${this.name}`);
+  }
+
+  this.quantity -= amount;
+};
+
 export default mongoose.model("Inventory", inventorySchema);
