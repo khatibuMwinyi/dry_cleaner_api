@@ -5,7 +5,7 @@ import InventoryConsumption from "../models/InventoryConsumption.js";
 import ServiceExecution from "../models/ServiceExecution.js";
 export const createService = async (req, res) => {
   try {
-    const { name, basePrice, inventoryUsage = [] } = req.body;
+    const { name, basePrice, consumables } = req.body;
 
     if (!name || basePrice == null) {
       return res.status(400).json({
@@ -17,30 +17,8 @@ export const createService = async (req, res) => {
     const service = await Service.create({
       name: name.trim(),
       basePrice: Number(basePrice),
+      consumables: consumables || []
     });
-
-    //  Consume inventory (optional)
-    for (const usage of inventoryUsage) {
-      const inventory = await Inventory.findById(usage.inventoryId);
-
-      if (!inventory) {
-        throw new Error("Inventory item not found");
-      }
-
-      if (inventory.quantity < usage.quantityUsed) {
-        throw new Error(`Insufficient stock for ${inventory.name}`);
-      }
-
-      inventory.quantity -= Number(usage.quantityUsed);
-      await inventory.save();
-
-      await InventoryConsumption.create({
-        inventory: inventory._id,
-        quantityUsed: Number(usage.quantityUsed),
-        sourceType: "SERVICE",
-        sourceId: service._id,
-      });
-    }
 
     res.status(201).json(service);
   } catch (error) {
@@ -53,9 +31,10 @@ export const createService = async (req, res) => {
 
 export const getServices = async (req, res) => {
   try {
-    const services = await Service.find({})
-      .select("name basePrice createdAt")
-      .lean();
+    const services = await Service.find().populate(
+    "consumables.inventory",
+    "name unit"
+  );
 
     res.json(services);
   } catch (error) {
@@ -110,6 +89,9 @@ export const deleteService = async (req, res) => {
     res.status(500).json({ message: "Failed to delete service" });
   }
 };
+
+
+
 export const getServiceExecutions = async (req, res) => {
   const executions = await ServiceExecution.find()
     .populate("service", "name")

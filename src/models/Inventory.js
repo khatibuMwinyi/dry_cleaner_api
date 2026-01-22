@@ -34,11 +34,11 @@ const inventorySchema = new mongoose.Schema(
 );
 
 // Guardrail: never allow negative stock
-inventorySchema.pre("save", function (next) {
+inventorySchema.pre("save", function () {
   if (this.quantity < 0) {
-    return next(new Error("Inventory quantity cannot be negative"));
+    return (new Error("Inventory quantity cannot be negative"));
   }
-  next();
+  
 });
 
 // CENTRALIZED inventory consumption logic

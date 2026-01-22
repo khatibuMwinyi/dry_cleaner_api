@@ -9,11 +9,6 @@ const serviceSchema = new mongoose.Schema(
       unique: true,
     },
 
-    description: {
-      type: String,
-      trim: true,
-    },
-
     basePrice: {
       type: Number,
       required: true,
