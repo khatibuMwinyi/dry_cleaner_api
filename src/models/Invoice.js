@@ -2,15 +2,6 @@ import mongoose from "mongoose";
 
 const invoiceItemSchema = new mongoose.Schema(
   {
-    clothingTypeId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "ClothingType",
-      required: true,
-    },
-    clothingTypeName: {
-      type: String,
-      required: true,
-    },
     serviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Service",

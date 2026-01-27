@@ -154,8 +154,7 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
             (it) => `
           <tr>
             <td class="item-col">
-              <strong>${it.clothingTypeName}</strong><br/>
-              <small>${it.serviceName}</small>
+              <strong>${it.serviceName}</strong>
             </td>
             <td class="num">${it.quantity}</td>
             <td class="num">${formatTZS(it.unitPrice)}</td>

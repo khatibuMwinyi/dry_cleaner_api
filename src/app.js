@@ -4,7 +4,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import customerRoutes from "./routes/customer.routes.js";
 import serviceRoutes from "./routes/service.routes.js";
-import clothingTypeRoutes from "./routes/clothingType.routes.js";
 import invoiceRoutes from "./routes/invoice.routes.js";
 import expenseRoutes from "./routes/expense.routes.js";
 import inventoryRoutes from "./routes/inventory.routes.js";
@@ -24,7 +23,6 @@ app.use(
   express.static(path.join(ROOT_DIR, "tmp", "invoices"))
 );
 app.use("/api/customers", customerRoutes);
-app.use("/api/clothing-types", clothingTypeRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/expenses", expenseRoutes);
