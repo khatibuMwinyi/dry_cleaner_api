@@ -12,12 +12,18 @@ const tryReadLogo = () => {
   if (process.env.LOGO_PATH) candidates.push(process.env.LOGO_PATH);
   // common locations
   candidates.push(
+    path.resolve(process.cwd(), "dry_cleaner_api", "src", "logo.png"),
+  );
+  candidates.push(
     path.resolve(process.cwd(), "backend", "src", "assets", "logo.png"),
   );
   candidates.push(path.resolve(process.cwd(), "backend", "logo.png"));
   candidates.push(path.resolve(process.cwd(), "logo.png"));
   candidates.push(
     path.resolve(process.cwd(), "frontend", "src", "assets", "logo.png"),
+  );
+  candidates.push(
+    path.resolve(process.cwd(), "dry_cleaner_ui", "src", "assets", "logo.svg"),
   );
 
   for (const p of candidates) {
@@ -138,13 +144,15 @@ export const generateInvoicePdf = async (req, res) => {
     const logoData = tryReadLogo();
     const pdf = await generatePdfFromInvoice(invoice, {
       name: "Oweru International LTD",
-      accountNumber: process.env.COMPANY_ACCOUNT || "",
+      accountNumber: process.env.COMPANY_ACCOUNT || "123456789",
+      accountName: process.env.COMPANY_ACCOUNT_NAME || "Oweru International LTD",
+      bankName: process.env.COMPANY_BANK || "Any Bank",
       logo: logoData,
-      phone: process.env.COMPANY_PHONE,
-      email: process.env.COMPANY_EMAIL,
-      address: process.env.COMPANY_ADDRESS,
-      pobox: process.env.COMPANY_POBOX,
-      website: process.env.COMPANY_WEBSITE,
+      phone: process.env.COMPANY_PHONE || "+255 711 890 764",
+      email: process.env.COMPANY_EMAIL || "info@oweru.com",
+      address: process.env.COMPANY_ADDRESS || "Tancot House, Posta - Dar es Salaam, Tanzania",
+      pobox: process.env.COMPANY_POBOX || "P.O. Box: 7563, Dar es Salaam",
+      website: process.env.COMPANY_WEBSITE || "www.oweru.com",
     });
     res.set({
       "Content-Type": "application/pdf",
@@ -160,7 +168,10 @@ export const generateInvoicePdf = async (req, res) => {
 
 export const generateInvoiceFile = async (req, res) => {
   try {
-    const invoice = await Invoice.findById(req.params.id);
+    const invoice = await Invoice.findById(req.params.id).populate(
+      "customerId",
+      "name phone email address"
+    );
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
@@ -178,7 +189,19 @@ export const generateInvoiceFile = async (req, res) => {
     }
 
     // Otherwise generate
-    const pdfBuffer = await generatePdfFromInvoice(invoice);
+    const logoData = tryReadLogo();
+    const pdfBuffer = await generatePdfFromInvoice(invoice, {
+      name: "Oweru International LTD",
+      accountNumber: process.env.COMPANY_ACCOUNT || "123456789",
+      accountName: process.env.COMPANY_ACCOUNT_NAME || "Oweru International LTD",
+      bankName: process.env.COMPANY_BANK || "Any Bank",
+      logo: logoData,
+      phone: process.env.COMPANY_PHONE || "+255 711 890 764",
+      email: process.env.COMPANY_EMAIL || "info@oweru.com",
+      address: process.env.COMPANY_ADDRESS || "Tancot House, Posta - Dar es Salaam, Tanzania",
+      pobox: process.env.COMPANY_POBOX || "P.O. Box: 7563, Dar es Salaam",
+      website: process.env.COMPANY_WEBSITE || "www.oweru.com",
+    });
     fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(outPath, pdfBuffer);
 

@@ -11,6 +11,27 @@ const expenseSchema = new mongoose.Schema(
       type: String,
     },
     receiptPublicId: String,
+    
+    // Link to service execution
+    serviceExecution: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ServiceExecution",
+    },
+    
+    // Inventory usage details
+    inventoryUsage: [
+      {
+        inventory: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Inventory",
+        },
+        quantityUsed: {
+          type: Number,
+          required: true,
+        },
+      },
+    ],
+    
     isDeleted: {
       type: Boolean,
       default: false,

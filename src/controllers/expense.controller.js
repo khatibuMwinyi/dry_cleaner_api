@@ -65,9 +65,18 @@ export const createExpense = async (req, res) => {
 };
 export const getExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find({ isDeleted: false }).sort({
-      date: -1,
-    });
+    const expenses = await Expense.find({ isDeleted: false })
+      .populate({
+        path: "serviceExecution",
+        populate: {
+          path: "service",
+          select: "name basePrice",
+        },
+      })
+      .populate("inventoryUsage.inventory", "name unit")
+      .sort({
+        date: -1,
+      });
     res.json(expenses);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch expenses" });
@@ -76,7 +85,15 @@ export const getExpenses = async (req, res) => {
 
 export const getExpenseById = async (req, res) => {
   try {
-    const expense = await Expense.findById(req.params.id);
+    const expense = await Expense.findById(req.params.id)
+      .populate({
+        path: "serviceExecution",
+        populate: {
+          path: "service",
+          select: "name basePrice",
+        },
+      })
+      .populate("inventoryUsage.inventory", "name unit");
     if (!expense) {
       return res.status(404).json({ message: "Expense not found" });
     }
