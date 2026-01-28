@@ -10,7 +10,7 @@ export const executeService = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { quantity = 1 } = req.body;
+    const { quantity = 1, invoiceId } = req.body;
 
     if (quantity <= 0) {
       throw new Error("Execution quantity must be positive");
@@ -21,61 +21,73 @@ export const executeService = async (req, res) => {
 
     if (!service) throw new Error("Service not found");
 
+    // Create service execution record first (so we can link consumption + expenses)
+    const serviceExecution = await ServiceExecution.create(
+      [
+        {
+          service: service._id,
+          basePrice: service.basePrice,
+          consumables: [],
+          status: "SUCCESS",
+          executedBy: req.user?._id,
+          invoice: invoiceId || undefined,
+        },
+      ],
+      { session },
+    );
+
     // Track inventory consumption for expense creation
     const inventoryUsage = [];
     let totalExpenseAmount = 0;
 
     // Consume inventory and track usage
     for (const item of service.consumables) {
-      const inventory = await Inventory.findById(item.inventory)
-        .session(session);
+      const inventory = await Inventory.findById(item.inventory).session(session);
 
       if (!inventory) {
         throw new Error("Inventory item missing");
       }
 
-      const quantityToConsume = item.quantity * quantity;
+      const quantityToConsume = Number(item.quantity) * Number(quantity);
       inventory.consume(quantityToConsume);
       await inventory.save({ session });
 
-      // Record inventory consumption
-      const consumption = await InventoryConsumption.create(
+      // Store on execution
+      serviceExecution[0].consumables.push({
+        inventory: inventory._id,
+        quantity: quantityToConsume,
+      });
+
+      // Expense amount from inventory cost
+      const unitCost = Number(inventory.costPerUnit || 0);
+      totalExpenseAmount += quantityToConsume * unitCost;
+
+      // Record inventory consumption (link to serviceExecution id)
+      await InventoryConsumption.create(
         [
           {
             inventory: inventory._id,
             quantityUsed: quantityToConsume,
             sourceType: "SERVICE",
-            sourceId: req.params.serviceId,
+            sourceId: serviceExecution[0]._id,
+            notes: `Huduma: ${service.name}`,
           },
         ],
-        { session }
+        { session },
       );
 
       inventoryUsage.push({
         inventory: inventory._id,
         quantityUsed: quantityToConsume,
       });
-
-      // Calculate expense amount (you can adjust this logic based on your needs)
-      // For now, we'll use a simple calculation or set it to 0 if inventory cost isn't tracked
-      totalExpenseAmount += 0; // Update this if you track inventory costs
     }
 
-    // Create service execution record
-    const serviceExecution = await ServiceExecution.create(
-      [
-        {
-          service: service._id,
-          basePrice: service.basePrice,
-          consumables: service.consumables.map((c) => ({
-            inventory: c.inventory,
-            quantity: c.quantity * quantity,
-          })),
-          status: "SUCCESS",
-        },
-      ],
-      { session }
-    );
+    await serviceExecution[0].save({ session });
+
+    // Swahili description for expenses
+    const swDesc = `Matumizi ya bidhaa za ghala kwa huduma ya ${service.name} (idadi ${Number(
+      quantity,
+    ).toFixed(3)}).`;
 
     // Create expense record linked to service execution
     const expense = await Expense.create(
@@ -83,13 +95,14 @@ export const executeService = async (req, res) => {
         {
           category: "Service Execution",
           amount: totalExpenseAmount,
-          description: `Inventory usage for ${service.name} (${quantity} unit(s))`,
+          description: swDesc,
           date: new Date(),
           serviceExecution: serviceExecution[0]._id,
-          inventoryUsage: inventoryUsage,
+          invoice: invoiceId || undefined,
+          inventoryUsage,
         },
       ],
-      { session }
+      { session },
     );
 
     await session.commitTransaction();

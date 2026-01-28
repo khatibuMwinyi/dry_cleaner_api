@@ -4,7 +4,7 @@ import Inventory from "../models/Inventory.js";
 // CREATE
 export const createInventory = async (req, res) => {
   try {
-    const { name, quantity, unit, reorderLevel } = req.body;
+    const { name, quantity, unit, reorderLevel, costPerUnit } = req.body;
 
     if (!name || quantity == null) {
       return res.status(400).json({ message: "Name and quantity are required" });
@@ -14,6 +14,7 @@ export const createInventory = async (req, res) => {
       name: name.trim(),
       quantity: Number(quantity),
       unit: unit?.trim() || null,
+      costPerUnit: costPerUnit != null ? Number(costPerUnit) : 0,
       reorderLevel:
         reorderLevel != null ? Number(reorderLevel) : null,
     });
@@ -72,6 +73,8 @@ export const updateInventory = async (req, res) => {
         ...req.body,
         quantity:
           req.body.quantity != null ? Number(req.body.quantity) : undefined,
+        costPerUnit:
+          req.body.costPerUnit != null ? Number(req.body.costPerUnit) : undefined,
         reorderLevel:
           req.body.reorderLevel != null
             ? Number(req.body.reorderLevel)

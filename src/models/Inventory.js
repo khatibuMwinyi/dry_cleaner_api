@@ -20,6 +20,12 @@ const inventorySchema = new mongoose.Schema(
       trim: true,
     },
 
+    costPerUnit: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
     reorderLevel: {
       type: Number,
       min: 0,
