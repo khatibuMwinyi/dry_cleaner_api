@@ -4,6 +4,12 @@ import { buildInvoiceItems } from "../services/invoice.service.js";
 import { generatePdfFromInvoice } from "../utils/pdf.js";
 import fs from "fs";
 import path from "path";
+import mongoose from "mongoose";
+import Service from "../models/Service.js";
+import Inventory from "../models/Inventory.js";
+import InventoryConsumption from "../models/InventoryConsumption.js";
+import ServiceExecution from "../models/ServiceExecution.js";
+import Expense from "../models/Expense.js";
 
 const ROOT_DIR = path.resolve(process.cwd());
 
@@ -11,20 +17,25 @@ const tryReadLogo = () => {
   const candidates = [];
   if (process.env.LOGO_PATH) candidates.push(process.env.LOGO_PATH);
   // common locations
+  // repo root layout
   candidates.push(
     path.resolve(process.cwd(), "dry_cleaner_api", "src", "logo.png"),
   );
+  // when cwd is already dry_cleaner_api
+  candidates.push(path.resolve(process.cwd(), "src", "logo.png"));
+  candidates.push(path.resolve(process.cwd(), "logo.png"));
   candidates.push(
     path.resolve(process.cwd(), "backend", "src", "assets", "logo.png"),
   );
   candidates.push(path.resolve(process.cwd(), "backend", "logo.png"));
-  candidates.push(path.resolve(process.cwd(), "logo.png"));
   candidates.push(
     path.resolve(process.cwd(), "frontend", "src", "assets", "logo.png"),
   );
   candidates.push(
     path.resolve(process.cwd(), "dry_cleaner_ui", "src", "assets", "logo.svg"),
   );
+  // when cwd is already dry_cleaner_ui
+  candidates.push(path.resolve(process.cwd(), "src", "assets", "logo.svg"));
 
   for (const p of candidates) {
     try {
@@ -80,6 +91,111 @@ export const createInvoice = async (req, res) => {
   }
 };
 
+// Admin: execute all services in an invoice (once)
+export const executeInvoiceServices = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const invoice = await Invoice.findById(req.params.id).session(session);
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (invoice.isExecuted) {
+      return res.status(400).json({ message: "Invoice already executed" });
+    }
+
+    for (const item of invoice.items) {
+      const service = await Service.findById(item.serviceId).session(session);
+      if (!service) throw new Error("Service not found");
+
+      const qty = Number(item.quantity || 1);
+
+      // Create service execution record first
+      const serviceExecution = await ServiceExecution.create(
+        [
+          {
+            service: service._id,
+            basePrice: service.basePrice,
+            consumables: [],
+            status: "SUCCESS",
+            executedBy: req.user?._id,
+            invoice: invoice._id,
+          },
+        ],
+        { session },
+      );
+
+      const inventoryUsage = [];
+      let totalExpenseAmount = 0;
+
+      for (const c of service.consumables) {
+        const inventory = await Inventory.findById(c.inventory).session(session);
+        if (!inventory) throw new Error("Inventory item missing");
+
+        const quantityToConsume = Number(c.quantity) * qty;
+        inventory.consume(quantityToConsume);
+        await inventory.save({ session });
+
+        serviceExecution[0].consumables.push({
+          inventory: inventory._id,
+          quantity: quantityToConsume,
+        });
+
+        totalExpenseAmount += quantityToConsume * Number(inventory.costPerUnit || 0);
+
+        await InventoryConsumption.create(
+          [
+            {
+              inventory: inventory._id,
+              quantityUsed: quantityToConsume,
+              sourceType: "SERVICE",
+              sourceId: serviceExecution[0]._id,
+              notes: `Invoice ${invoice._id}`,
+            },
+          ],
+          { session },
+        );
+
+        inventoryUsage.push({ inventory: inventory._id, quantityUsed: quantityToConsume });
+      }
+
+      await serviceExecution[0].save({ session });
+
+      const swDesc = `Matumizi ya bidhaa za ghala kwa huduma ya ${service.name} (kutoka invoice #${invoice._id
+        .toString()
+        .slice(-5)
+        .padStart(5, "0")}, idadi ${qty.toFixed(3)}).`;
+
+      await Expense.create(
+        [
+          {
+            category: "Service Execution",
+            amount: totalExpenseAmount,
+            description: swDesc,
+            date: new Date(),
+            serviceExecution: serviceExecution[0]._id,
+            invoice: invoice._id,
+            inventoryUsage,
+          },
+        ],
+        { session },
+      );
+    }
+
+    invoice.isExecuted = true;
+    invoice.executedAt = new Date();
+    invoice.executedBy = req.user?._id;
+    await invoice.save({ session });
+
+    await session.commitTransaction();
+    return res.json({ message: "Invoice services executed successfully" });
+  } catch (err) {
+    await session.abortTransaction();
+    return res.status(400).json({ message: err.message });
+  } finally {
+    session.endSession();
+  }
+};
+
 export const getInvoices = async (req, res) => {
   try {
     const { customerId, paymentStatus, startDate, endDate } = req.query;
@@ -95,6 +211,7 @@ export const getInvoices = async (req, res) => {
 
     const invoices = await Invoice.find(query)
       .populate("customerId", "name phone email")
+      .populate("executedBy", "email role")
       .sort({ createdAt: -1 });
 
     res.json(invoices);
@@ -105,10 +222,9 @@ export const getInvoices = async (req, res) => {
 
 export const getInvoiceById = async (req, res) => {
   try {
-    const invoice = await Invoice.findById(req.params.id).populate(
-      "customerId",
-      "name phone email",
-    );
+    const invoice = await Invoice.findById(req.params.id)
+      .populate("customerId", "name phone email")
+      .populate("executedBy", "email role");
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
