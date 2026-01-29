@@ -96,6 +96,7 @@ export const getServiceExecutions = async (req, res) => {
   const executions = await ServiceExecution.find()
     .populate("service", "name")
     .populate("consumables.inventory", "name unit")
+    .populate("executedBy", "email role")
     .sort({ createdAt: -1 });
 
   res.json(executions);

@@ -32,6 +32,16 @@ const serviceExecutionSchema = new mongoose.Schema(
       },
     ],
 
+    executedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    invoice: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Invoice",
+    },
+
     status: {
       type: String,
       enum: ["SUCCESS", "FAILED"],

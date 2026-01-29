@@ -75,6 +75,16 @@ const invoiceSchema = new mongoose.Schema(
     pickupDate: {
       type: Date,
     },
+
+    isExecuted: {
+      type: Boolean,
+      default: false,
+    },
+    executedAt: Date,
+    executedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   {
     timestamps: true, // createdAt & updatedAt

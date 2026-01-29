@@ -17,6 +17,11 @@ const expenseSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "ServiceExecution",
     },
+
+    invoice: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Invoice",
+    },
     
     // Inventory usage details
     inventoryUsage: [
