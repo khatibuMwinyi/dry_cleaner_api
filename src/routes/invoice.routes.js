@@ -18,6 +18,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), createInvoice);
 router.get("/", requireAuth, requireRole("ADMIN"), getInvoices);
 router.get("/customer/:customerId", requireAuth, requireRole("ADMIN"), getInvoicesByCustomer);
 router.get("/:id", requireAuth, requireRole("ADMIN"), getInvoiceById);
+router.get("/:id/preview", requireAuth, requireRole("ADMIN", "MODERATOR"), getInvoiceById);
 router.post("/:id/pay", requireAuth, requireRole("ADMIN"), markInvoiceAsPaid);
 router.post("/:id/execute", requireAuth, requireRole("ADMIN"), executeInvoiceServices);
 router.get("/:id/pdf", requireAuth, requireRole("ADMIN"), generateInvoicePdf);

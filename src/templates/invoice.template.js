@@ -6,128 +6,246 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
       minimumFractionDigits: 0,
     }).format(amount || 0);
 
+  const formatDate = (date) => {
+    if (!date) return "—";
+    const d = new Date(date);
+    const months = [
+      "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+      "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
+    ];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
+  const invoiceDate = formatDate(invoice.createdAt);
+  const dueDate = formatDate(invoice.pickupDate);
+  const invoiceNumber = invoice._id.toString().slice(-5).padStart(5, '0');
+
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Invoice ${invoice._id}</title>
+<title>Invoice ${invoiceNumber}</title>
 
 <style>
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    margin: 0;
     font-family: Arial, Helvetica, sans-serif;
     color: #111;
+    background: #fff;
   }
 
   .page {
     display: grid;
-    grid-template-columns: 1fr 260px;
+    grid-template-columns: 1fr 300px;
     min-height: 100vh;
   }
 
   .content {
-    padding: 48px 40px;
+    padding: 60px 50px;
+    background: #fff;
   }
 
   h1 {
-    font-size: 56px;
+    font-size: 64px;
     margin: 0;
     font-weight: 800;
+    color: #0F172A;
+    line-height: 1;
   }
 
-  .company {
+  .company-name {
+    font-size: 16px;
+    margin-top: 10px;
+    color: #0F172A;
+    font-weight: 600;
+  }
+
+  .customer-info {
+    margin-top: 50px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+
+  .customer-info h3 {
     font-size: 14px;
-    margin-top: 6px;
-    color: #444;
+    color: #666;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .customer-info p {
+    font-size: 14px;
+    color: #111;
+    margin: 4px 0;
   }
 
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 48px;
-    table-layout: fixed;
+    margin-top: 40px;
   }
 
   th {
     text-align: left;
-    font-size: 13px;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 10px;
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  th.num {
+    text-align: right;
   }
 
   td {
-    padding: 12px 0;
+    padding: 16px 0;
     font-size: 14px;
     vertical-align: top;
-    border-bottom: 1px solid #eee;
-    word-break: break-word;
+    border-bottom: 1px solid #f3f4f6;
+    color: #111;
   }
 
-  .item-col {
-    width: 45%;
-  }
-
-  .num {
+  td.num {
     text-align: right;
     white-space: nowrap;
   }
 
+  .item-col {
+    width: 50%;
+  }
+
   .summary {
-    margin-top: 32px;
-    max-width: 320px;
+    margin-top: 40px;
+    max-width: 350px;
     margin-left: auto;
   }
 
   .summary-row {
     display: flex;
     justify-content: space-between;
-    padding: 6px 0;
+    padding: 8px 0;
+    font-size: 14px;
   }
 
   .summary-row.total {
     font-weight: 700;
-    border-top: 1px solid #000;
-    margin-top: 8px;
-    padding-top: 10px;
+    font-size: 16px;
+    border-top: 2px solid #0F172A;
+    margin-top: 12px;
+    padding-top: 12px;
+    color: #0F172A;
   }
 
   .thank-you {
-    margin-top: 60px;
+    margin-top: 50px;
     font-weight: 700;
+    font-size: 18px;
+    color: #0F172A;
   }
 
   .sidebar {
     background: #f6e6c9;
-    padding: 40px 24px;
+    padding: 50px 30px;
     font-size: 13px;
   }
 
-  .sidebar h3 {
-    font-size: 12px;
-    margin: 24px 0 6px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+  .sidebar .date {
+    font-weight: 700;
+    font-size: 16px;
+    color: #0F172A;
+    margin-bottom: 30px;
   }
 
-  .date {
-    font-weight: 700;
+  .sidebar h3 {
+    font-size: 11px;
+    margin: 25px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+    font-weight: 600;
+  }
+
+  .sidebar p {
+    color: #111;
     font-size: 14px;
+    margin: 4px 0;
+  }
+
+  .payment-info {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+  }
+
+  .payment-info p {
+    margin: 6px 0;
+    font-size: 13px;
   }
 
   footer {
     grid-column: 1 / -1;
-    background: #f6e6c9;
-    padding: 24px 40px;
+    background: linear-gradient(to right, #d4a24c 0%, #d4a24c 50%, #f6e6c9 50%);
+    padding: 30px 50px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-size: 12px;
   }
 
-  .logo {
-    width: 90px;
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo-container {
+    width: 100px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-container img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .footer-info {
+    color: #111;
+  }
+
+  .footer-info strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #0F172A;
+  }
+
+  .footer-info p {
+    margin: 2px 0;
+    font-size: 12px;
+  }
+
+  .footer-pattern {
+    flex: 1;
+    height: 100%;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(0,0,0,0.05) 10px,
+      rgba(0,0,0,0.05) 20px
+    );
   }
 </style>
 </head>
@@ -137,7 +255,17 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
 
   <div class="content">
     <h1>Invoice</h1>
-    <div class="company">${company.name || "Oweru International LTD"}</div>
+    <div class="company-name">${company.name || "Oweru International LTD"}</div>
+
+    ${invoice.customerId ? `
+    <div class="customer-info">
+      <h3>Bill To</h3>
+      <p><strong>${invoice.customerId.name || "N/A"}</strong></p>
+      ${invoice.customerId.phone ? `<p>Phone: ${invoice.customerId.phone}</p>` : ''}
+      ${invoice.customerId.email ? `<p>Email: ${invoice.customerId.email}</p>` : ''}
+      ${invoice.customerId.address ? `<p>Address: ${invoice.customerId.address}</p>` : ''}
+    </div>
+    ` : ''}
 
     <table>
       <thead>
@@ -171,10 +299,12 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
         <span>Subtotal</span>
         <span>${formatTZS(invoice.subtotal)}</span>
       </div>
+      ${invoice.discount > 0 ? `
       <div class="summary-row">
         <span>Discount</span>
-        <span>${formatTZS(invoice.discount || 0)}</span>
+        <span>${formatTZS(invoice.discount)}</span>
       </div>
+      ` : ''}
       <div class="summary-row total">
         <span>Total</span>
         <span>${formatTZS(invoice.total)}</span>
@@ -185,40 +315,47 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
   </div>
 
   <aside class="sidebar">
-    <div class="date">
-      ${new Date(invoice.createdAt).toLocaleDateString("en-GB")}
-    </div>
+    <div class="date">${invoiceDate}</div>
 
     <h3>Invoice</h3>
-    <p>#${invoice._id}</p>
+    <p>#${invoiceNumber}</p>
 
     <h3>Payment Status</h3>
-    <p>${invoice.paymentStatus}</p>
+    <p>${invoice.paymentStatus || "UNPAID"}</p>
 
     <h3>Due Date</h3>
-    <p>
-      ${invoice.pickupDate
-        ? new Date(invoice.pickupDate).toLocaleDateString("en-GB")
-        : "—"}
-    </p>
+    <p>${dueDate}</p>
+
+    <div class="payment-info">
+      <h3 style="margin-top: 0;">Payment</h3>
+      <p><strong>${company.bankName || "Any Bank"}</strong></p>
+      <p>Account: ${company.accountName || company.name || "Oweru International LTD"}</p>
+      <p>Number: ${company.accountNumber || "123456789"}</p>
+      ${dueDate !== "—" ? `<p>Due Date: ${dueDate}</p>` : ''}
+    </div>
   </aside>
 
   <footer>
-    <div>
-      <strong>${company.name || "Oweru"}</strong><br/>
-      ${company.phone || "+255 711 890 764"}<br/>
-      ${company.email || "info@oweru.com"}<br/>
-      ${company.address || "Dar es Salaam, Tanzania"}
+    <div class="footer-left">
+      ${company.logo ? `
+      <div class="logo-container">
+        <img src="${company.logo}" alt="Logo" />
+      </div>
+      ` : `
+      <div class="logo-container" style="background: #d4a24c; color: #111; font-weight: 700; font-size: 18px; border-radius: 4px;">
+        OW
+      </div>
+      `}
+      <div class="footer-info">
+        <strong>${company.name || "Oweru International LTD"}</strong>
+        <p>${company.phone || "+255 711 890 764"}</p>
+        <p>${company.email || "info@oweru.com"}</p>
+        <p>${company.address || "Tancot House, Posta - Dar es Salaam, Tanzania"}</p>
+        ${company.pobox ? `<p>${company.pobox}</p>` : ''}
+        ${company.website ? `<p>${company.website}</p>` : ''}
+      </div>
     </div>
-
-    <!-- INLINE SVG LOGO -->
-    <svg class="logo" viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="40" fill="#d4a24c"/>
-      <text x="50" y="26" text-anchor="middle"
-        font-size="18" fill="#111" font-weight="700">
-        Oweru
-      </text>
-    </svg>
+    <div class="footer-pattern"></div>
   </footer>
 
 </div>
