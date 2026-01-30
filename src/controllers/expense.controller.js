@@ -19,41 +19,60 @@ export const createExpense = async (req, res) => {
       });
     }
 
+    // Calculate total cost from inventory usage if provided
+    let calculatedAmount = amount;
+    if (inventoryUsage && inventoryUsage.length > 0) {
+      calculatedAmount = 0;
+      const processedInventoryUsage = [];
+
+      for (const usage of inventoryUsage) {
+        const inventory = await Inventory.findById(usage.inventoryId);
+
+        if (!inventory) {
+          throw new Error("Inventory item not found");
+        }
+
+        if (inventory.quantity < usage.quantityUsed) {
+          throw new Error(
+            `Not enough stock for ${inventory.name}`
+          );
+        }
+
+        const unitCost = Number(inventory.costPerUnit || 0);
+        const itemCost = Number(usage.quantityUsed) * unitCost;
+        calculatedAmount += itemCost;
+
+        // decrement inventory
+        inventory.quantity -= usage.quantityUsed;
+        await inventory.save();
+
+        // record consumption
+        await InventoryConsumption.create({
+          inventory: inventory._id,
+          quantityUsed: usage.quantityUsed,
+          sourceType: "EXPENSE",
+          sourceId: expense._id,
+        });
+
+        processedInventoryUsage.push({
+          inventory: inventory._id,
+          quantityUsed: usage.quantityUsed,
+        });
+      }
+
+      // Update inventoryUsage in expense creation
+      req.body.inventoryUsage = processedInventoryUsage;
+    }
+
     const expense = await Expense.create({
       category,
-      amount,
+      amount: calculatedAmount,
       description,
       date,
       receiptUrl: req.file?.path || null,
       receiptPublicId: req.file?.filename || null,
+      inventoryUsage: req.body.inventoryUsage || [],
     });
-
-    //  INVENTORY CONSUMPTION
-    for (const usage of inventoryUsage) {
-      const inventory = await Inventory.findById(usage.inventoryId);
-
-      if (!inventory) {
-        throw new Error("Inventory item not found");
-      }
-
-      if (inventory.quantity < usage.quantityUsed) {
-        throw new Error(
-          `Not enough stock for ${inventory.name}`
-        );
-      }
-
-      // decrement inventory
-      inventory.quantity -= usage.quantityUsed;
-      await inventory.save();
-
-      // record consumption
-      await InventoryConsumption.create({
-        inventory: inventory._id,
-        quantityUsed: usage.quantityUsed,
-        sourceType: "EXPENSE",
-        sourceId: expense._id,
-      });
-    }
 
     res.status(201).json(expense);
   } catch (error) {
@@ -73,6 +92,7 @@ export const getExpenses = async (req, res) => {
           select: "name basePrice",
         },
       })
+      .populate("invoice", "paymentStatus total _id")
       .populate("inventoryUsage.inventory", "name unit")
       .sort({
         date: -1,

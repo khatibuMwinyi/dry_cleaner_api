@@ -58,9 +58,11 @@ export const executeService = async (req, res) => {
         quantity: quantityToConsume,
       });
 
-      // Expense amount from inventory cost
+      // Expense amount from inventory cost with proper unit calculation
       const unitCost = Number(inventory.costPerUnit || 0);
-      totalExpenseAmount += quantityToConsume * unitCost;
+      // Calculate cost based on the actual quantity consumed and cost per unit
+      const itemCost = quantityToConsume * unitCost;
+      totalExpenseAmount += itemCost;
 
       // Record inventory consumption (link to serviceExecution id)
       await InventoryConsumption.create(
