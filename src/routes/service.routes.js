@@ -16,8 +16,8 @@ router.post("/", requireAuth, requireRole("MODERATOR"), createService);
 router.put("/:id", requireAuth, requireRole("MODERATOR"), updateService);
 router.delete("/:id", requireAuth, requireRole("MODERATOR"), deleteService);
 
-// Admin-only execution
-router.post("/:serviceId/execute", requireAuth, requireRole("ADMIN"), executeService);
+// Moderator-only execution
+router.post("/:serviceId/execute", requireAuth, requireRole("MODERATOR"), executeService);
 
 // Allow both roles to view executions
 router.get("/executions", requireAuth, getServiceExecutions);
