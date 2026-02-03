@@ -5,6 +5,8 @@ import {
   getMonthlyAnalytics,
   getTopCustomers,
   getCustomerExpenses,
+  getMonthlyReportData,
+  generateMonthlyReportPDF,
 } from "../controllers/analytics.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
@@ -19,6 +21,18 @@ router.get(
   requireAuth,
   requireRole("ADMIN", "MODERATOR"),
   getCustomerExpenses,
+);
+router.post(
+  "/reports/monthly-pdf",
+  requireAuth,
+  requireRole("ADMIN", "MODERATOR"),
+  getMonthlyReportData,
+);
+router.post(
+  "/reports/monthly-pdf/download",
+  requireAuth,
+  requireRole("ADMIN", "MODERATOR"),
+  generateMonthlyReportPDF,
 );
 
 export default router;

@@ -1,6 +1,7 @@
 import Invoice from "../models/Invoice.js";
 import Expense from "../models/Expense.js";
 import Customer from "../models/Customer.js";
+import { generatePdfFromMonthlyReport } from "../utils/pdf.js";
 
 // Get revenue and expense analytics
 export const getFinancialAnalytics = async (req, res) => {
@@ -260,6 +261,284 @@ export const getTopCustomers = async (req, res) => {
     res.json(topCustomers);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+};
+
+// Generate monthly revenue vs expenses PDF report data
+export const getMonthlyReportData = async (req, res) => {
+  try {
+    const { year, month } = req.body;
+    
+    if (!year || !month) {
+      return res.status(400).json({ message: "Year and month are required" });
+    }
+
+    // Create date range for the specified month
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    
+    // Get revenue data with customer details
+    const revenueData = await Invoice.aggregate([
+      {
+        $match: {
+          paymentStatus: "PAID",
+          $or: [
+            { paidAt: { $gte: monthStart, $lte: monthEnd } },
+            { $and: [{ paidAt: null }, { createdAt: { $gte: monthStart, $lte: monthEnd } }] }
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "customers",
+          localField: "customerId",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
+      {
+        $unwind: "$customer",
+      },
+      {
+        $project: {
+          invoiceNumber: "$invoiceNumber",
+          total: "$total",
+          createdAt: "$createdAt",
+          paidAt: "$paidAt",
+          customerName: "$customer.name",
+          customerPhone: "$customer.phone",
+          items: "$items"
+        },
+      },
+      {
+        $sort: { createdAt: -1 }
+      }
+    ]);
+
+    // Get expense data with category breakdown
+    const expenseData = await Expense.aggregate([
+      {
+        $match: {
+          date: { $gte: monthStart, $lte: monthEnd },
+        },
+      },
+      {
+        $sort: { date: -1 }
+      }
+    ]);
+
+    // Calculate totals
+    const totalRevenue = revenueData.reduce((sum, inv) => sum + inv.total, 0);
+    const totalExpenses = expenseData.reduce((sum, exp) => sum + exp.amount, 0);
+    const profit = totalRevenue - totalExpenses;
+
+    // Group expenses by category
+    const expensesByCategory = expenseData.reduce((acc, expense) => {
+      const category = expense.category || "Other";
+      if (!acc[category]) {
+        acc[category] = {
+          category,
+          total: 0,
+          items: []
+        };
+      }
+      acc[category].total += expense.amount;
+      acc[category].items.push(expense);
+      return acc;
+    }, {});
+
+    // Group revenue by customer
+    const revenueByCustomer = revenueData.reduce((acc, invoice) => {
+      const customerName = invoice.customerName || "Unknown Customer";
+      if (!acc[customerName]) {
+        acc[customerName] = {
+          customerName,
+          customerPhone: invoice.customerPhone,
+          total: 0,
+          invoiceCount: 0,
+          invoices: []
+        };
+      }
+      acc[customerName].total += invoice.total;
+      acc[customerName].invoiceCount += 1;
+      acc[customerName].invoices.push(invoice);
+      return acc;
+    }, {});
+
+    const monthName = monthStart.toLocaleString("default", { month: "long", year: "numeric" });
+
+    res.json({
+      period: {
+        year,
+        month: monthName,
+        startDate: monthStart,
+        endDate: monthEnd
+      },
+      summary: {
+        totalRevenue,
+        totalExpenses,
+        profit,
+        profitMargin: totalRevenue > 0 ? ((profit / totalRevenue) * 100).toFixed(2) : 0,
+        invoiceCount: revenueData.length,
+        expenseCount: expenseData.length
+      },
+      revenueBreakdown: Object.values(revenueByCustomer),
+      expenseBreakdown: Object.values(expensesByCategory),
+      allInvoices: revenueData,
+      allExpenses: expenseData
+    });
+  } catch (error) {
+    console.error("Error generating monthly report data:", error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Generate and download monthly PDF report
+export const generateMonthlyReportPDF = async (req, res) => {
+  try {
+    const { year, month } = req.body;
+    
+    if (!year || !month) {
+      return res.status(400).json({ message: "Year and month are required" });
+    }
+
+    // Create date range for the specified month
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    
+    // Get revenue data with customer details
+    const revenueData = await Invoice.aggregate([
+      {
+        $match: {
+          paymentStatus: "PAID",
+          $or: [
+            { paidAt: { $gte: monthStart, $lte: monthEnd } },
+            { $and: [{ paidAt: null }, { createdAt: { $gte: monthStart, $lte: monthEnd } }] }
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "customers",
+          localField: "customerId",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
+      {
+        $unwind: "$customer",
+      },
+      {
+        $project: {
+          invoiceNumber: "$invoiceNumber",
+          total: "$total",
+          createdAt: "$createdAt",
+          paidAt: "$paidAt",
+          customerName: "$customer.name",
+          customerPhone: "$customer.phone",
+          items: "$items"
+        },
+      },
+      {
+        $sort: { createdAt: -1 }
+      }
+    ]);
+
+    // Get expense data with category breakdown
+    const expenseData = await Expense.aggregate([
+      {
+        $match: {
+          date: { $gte: monthStart, $lte: monthEnd },
+        },
+      },
+      {
+        $sort: { date: -1 }
+      }
+    ]);
+
+    // Calculate totals
+    const totalRevenue = revenueData.reduce((sum, inv) => sum + inv.total, 0);
+    const totalExpenses = expenseData.reduce((sum, exp) => sum + exp.amount, 0);
+    const profit = totalRevenue - totalExpenses;
+
+    // Group expenses by category
+    const expensesByCategory = expenseData.reduce((acc, expense) => {
+      const category = expense.category || "Other";
+      if (!acc[category]) {
+        acc[category] = {
+          category,
+          total: 0,
+          items: []
+        };
+      }
+      acc[category].total += expense.amount;
+      acc[category].items.push(expense);
+      return acc;
+    }, {});
+
+    // Group revenue by customer
+    const revenueByCustomer = revenueData.reduce((acc, invoice) => {
+      const customerName = invoice.customerName || "Unknown Customer";
+      if (!acc[customerName]) {
+        acc[customerName] = {
+          customerName,
+          customerPhone: invoice.customerPhone,
+          total: 0,
+          invoiceCount: 0,
+          invoices: []
+        };
+      }
+      acc[customerName].total += invoice.total;
+      acc[customerName].invoiceCount += 1;
+      acc[customerName].invoices.push(invoice);
+      return acc;
+    }, {});
+
+    const monthName = monthStart.toLocaleString("default", { month: "long", year: "numeric" });
+
+    const reportData = {
+      period: {
+        year,
+        month: monthName,
+        startDate: monthStart,
+        endDate: monthEnd
+      },
+      summary: {
+        totalRevenue,
+        totalExpenses,
+        profit,
+        profitMargin: totalRevenue > 0 ? ((profit / totalRevenue) * 100).toFixed(2) : 0,
+        invoiceCount: revenueData.length,
+        expenseCount: expenseData.length
+      },
+      revenueBreakdown: Object.values(revenueByCustomer),
+      expenseBreakdown: Object.values(expensesByCategory),
+      allInvoices: revenueData,
+      allExpenses: expenseData
+    };
+
+    // Company settings (you can extend this to fetch from database)
+    const company = {
+      name: "Oweru International LTD",
+      phone: "+255 711 890 764",
+      email: "info@oweru.com",
+      address: "Tancot House, Posta - Dar es Salaam, Tanzania"
+    };
+
+    // Generate PDF
+    const pdfBuffer = await generatePdfFromMonthlyReport(reportData, company);
+    
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Monthly-Report-${monthName.replace(/[\s,]/g, '-')}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    
+    // Send PDF buffer
+    res.send(pdfBuffer);
+    
+  } catch (error) {
+    console.error("Error generating monthly report PDF:", error);
+    res.status(500).json({ message: "Failed to generate PDF: " + error.message });
   }
 };
 
