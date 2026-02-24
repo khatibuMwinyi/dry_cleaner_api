@@ -35,15 +35,18 @@ export const login = async (req, res) => {
   }
 };
 
-// Moderator-only: create a new admin
-export const registerAdmin = async (req, res) => {
+// Moderator-only: create a new admin or cleaner
+export const registerUser = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+    const { email, password, role } = req.body || {};
+    if (!email || !password || !role) {
+      return res.status(400).json({ message: "Email, password and role are required" });
     }
     if (String(password).length < 6) {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+    if (!["ADMIN", "CLEANER"].includes(role)) {
+      return res.status(400).json({ message: "Role must be ADMIN or CLEANER" });
     }
 
     const normalized = email.toLowerCase().trim();
@@ -54,7 +57,7 @@ export const registerAdmin = async (req, res) => {
     const user = await User.create({
       email: normalized,
       passwordHash,
-      role: "ADMIN",
+      role,
     });
 
     return res.status(201).json({
@@ -63,7 +66,7 @@ export const registerAdmin = async (req, res) => {
       role: user.role,
     });
   } catch (err) {
-    return res.status(500).json({ message: "Failed to create admin" });
+    return res.status(500).json({ message: "Failed to create user" });
   }
 };
 
