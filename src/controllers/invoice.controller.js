@@ -1,5 +1,6 @@
 import Invoice from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
+import Job from "../models/Job.js";
 import { buildInvoiceItems } from "../services/invoice.service.js";
 import { generatePdfFromInvoice } from "../utils/pdf.js";
 import fs from "fs";
@@ -80,11 +81,29 @@ export const createInvoice = async (req, res) => {
       subtotal,
       discount,
       total,
-      checkInDate: new Date(), // Automatically set to current date
+      checkInDate: new Date(),
       pickupDate: pickupDate ? new Date(pickupDate) : undefined,
     });
 
     await invoice.populate("customerId", "name phone email");
+
+    const totalClothCount = invoiceItems.reduce((sum, item) => sum + item.quantity, 0);
+    const invoiceNumber = invoice._id.toString().slice(-8).toUpperCase();
+
+    await Job.create({
+      invoiceId: invoice._id,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      invoiceNumber: invoiceNumber,
+      submittedDate: new Date(),
+      status: "waiting",
+      notedClothCount: totalClothCount,
+      items: invoiceItems.map(item => ({
+        serviceName: item.serviceName,
+        quantity: item.quantity,
+      })),
+    });
+
     res.status(201).json(invoice);
   } catch (error) {
     res.status(400).json({ message: error.message });
