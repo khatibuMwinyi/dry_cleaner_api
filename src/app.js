@@ -9,6 +9,7 @@ import expenseRoutes from "./routes/expense.routes.js";
 import inventoryRoutes from "./routes/inventory.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import jobRoutes from "./routes/job.routes.js";
 
 const app = express();
 
@@ -30,5 +31,6 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/jobs", jobRoutes);
 
 export default app;
