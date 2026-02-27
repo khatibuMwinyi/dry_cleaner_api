@@ -8,6 +8,9 @@ import {
   sendInvoiceViaWhatsAppLink,
   generateInvoiceFile,
   executeInvoiceServices,
+  generateReceiptPdf,
+  generateReceiptFile,
+  sendReceiptViaWhatsApp,
 } from "../controllers/invoice.controller.js";
 import { markInvoiceAsPaid } from "../controllers/invoice.update.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -24,5 +27,8 @@ router.post("/:id/execute", requireAuth, requireRole("ADMIN"), executeInvoiceSer
 router.get("/:id/pdf", requireAuth, requireRole("ADMIN"), generateInvoicePdf);
 router.get("/:id/file", requireAuth, requireRole("ADMIN"), generateInvoiceFile);
 router.post("/:id/send-whatsapp", requireAuth, requireRole("ADMIN"), sendInvoiceViaWhatsAppLink);
+router.get("/:id/receipt/pdf", requireAuth, requireRole("ADMIN"), generateReceiptPdf);
+router.get("/:id/receipt/file", requireAuth, requireRole("ADMIN"), generateReceiptFile);
+router.post("/:id/send-receipt", requireAuth, requireRole("ADMIN"), sendReceiptViaWhatsApp);
 
 export default router;
