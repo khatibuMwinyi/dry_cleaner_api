@@ -9,9 +9,37 @@ import mongoose from "mongoose";
 
 export const getJobs = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, startDate, endDate } = req.query;
     const query = {};
     if (status) query.status = status;
+
+    // Check if dates are provided (not empty strings)
+    const hasStartDate = startDate && startDate.trim() !== "";
+    const hasEndDate = endDate && endDate.trim() !== "";
+
+    let dateQuery = {};
+    if (hasStartDate || hasEndDate) {
+      // Use provided date range
+      if (hasStartDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        dateQuery.$gte = start;
+      }
+      if (hasEndDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        dateQuery.$lte = end;
+      }
+    } else {
+      // Default to today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      dateQuery.$gte = today;
+      dateQuery.$lte = tomorrow;
+    }
+    query.submittedDate = dateQuery;
 
     const jobs = await Job.find(query).sort({ submittedDate: -1 });
     res.json(jobs);
@@ -156,17 +184,11 @@ export const executeJob = async (req, res) => {
 
       await serviceExecution[0].save({ session });
 
-      const swDesc = `Matumizi ya bidhaa za ghala kwa huduma ya ${service.name} (kutoka invoice #${invoice._id
-        .toString()
-        .slice(-5)
-        .padStart(5, "0")}, idadi ${qty.toFixed(3)}).`;
-
       await Expense.create(
         [
           {
             category: "Service Execution",
             amount: totalExpenseAmount,
-            description: swDesc,
             date: new Date(),
             serviceExecution: serviceExecution[0]._id,
             invoice: invoice._id,
@@ -252,6 +274,51 @@ export const denyJob = async (req, res) => {
     job.deniedReason = reason || "Job denied";
     await job.save();
     res.json(job);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+export const sendPickupNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const job = await Job.findById(id);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    if (job.status !== "success") {
+      return res.status(400).json({ message: "Job must be completed before sending pickup notification" });
+    }
+
+    const invoice = await Invoice.findById(job.invoiceId);
+    if (!invoice || !invoice.customerId) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const Customer = (await import("../models/Customer.js")).default;
+    const customer = await Customer.findById(invoice.customerId);
+    if (!customer || !customer.phone) {
+      return res.status(404).json({ message: "Customer phone not found" });
+    }
+
+    const message = `
+Hello ${customer.name},
+
+Your laundry is ready for pickup!
+
+Invoice #: ${job.invoiceNumber}
+Clothes: ${job.actualClothCount} items
+
+Please visit us to collect your items.
+
+Thank you for choosing Oweru International LTD!
+    `.trim();
+
+    const whatsappLink = `https://wa.me/${customer.phone}?text=${encodeURIComponent(message)}`;
+
+    res.json({ success: true, whatsappLink });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

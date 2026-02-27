@@ -7,6 +7,7 @@ import {
   executeJob,
   verifyJob,
   denyJob,
+  sendPickupNotification,
 } from "../controllers/job.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
@@ -19,5 +20,6 @@ router.patch("/:id/receive", requireAuth, requireRole("CLEANER"), receiveJob);
 router.patch("/:id/execute", requireAuth, requireRole("CLEANER"), executeJob);
 router.patch("/:id/verify", requireAuth, requireRole("ADMIN"), verifyJob);
 router.patch("/:id/deny", requireAuth, requireRole("ADMIN", "CLEANER"), denyJob);
+router.post("/:id/send-pickup-notification", requireAuth, requireRole("ADMIN"), sendPickupNotification);
 
 export default router;
