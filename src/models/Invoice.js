@@ -1,5 +1,21 @@
 import mongoose from "mongoose";
 
+const invoiceCounterSchema = new mongoose.Schema({
+  _id: { type: String, required: true },
+  seq: { type: Number, default: 0 },
+});
+
+const InvoiceCounter = mongoose.model("InvoiceCounter", invoiceCounterSchema);
+
+const getNextInvoiceNumber = async () => {
+  const counter = await InvoiceCounter.findOneAndUpdate(
+    { _id: "invoiceNumber" },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return counter.seq;
+};
+
 const invoiceItemSchema = new mongoose.Schema(
   {
     serviceId: {
@@ -32,6 +48,11 @@ const invoiceItemSchema = new mongoose.Schema(
 
 const invoiceSchema = new mongoose.Schema(
   {
+    invoiceNumber: {
+      type: String,
+      unique: true,
+    },
+
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
@@ -67,6 +88,10 @@ const invoiceSchema = new mongoose.Schema(
       default: "UNPAID",
     },
 
+    paidAt: {
+      type: Date,
+    },
+
     checkInDate: {
       type: Date,
       default: Date.now,
@@ -92,3 +117,4 @@ const invoiceSchema = new mongoose.Schema(
 );
 
 export default mongoose.model("Invoice", invoiceSchema);
+export { getNextInvoiceNumber };

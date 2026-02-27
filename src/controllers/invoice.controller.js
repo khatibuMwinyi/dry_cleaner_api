@@ -1,8 +1,8 @@
-import Invoice from "../models/Invoice.js";
+import Invoice, { getNextInvoiceNumber } from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
 import Job from "../models/Job.js";
 import { buildInvoiceItems } from "../services/invoice.service.js";
-import { generatePdfFromInvoice } from "../utils/pdf.js";
+import { generatePdfFromInvoice, generatePdfFromReceipt } from "../utils/pdf.js";
 import fs from "fs";
 import path from "path";
 import mongoose from "mongoose";
@@ -17,6 +17,9 @@ const ROOT_DIR = path.resolve(process.cwd());
 const tryReadLogo = () => {
   const candidates = [];
   if (process.env.LOGO_PATH) candidates.push(process.env.LOGO_PATH);
+  // assets folder (recommended)
+  candidates.push(path.resolve(process.cwd(), "assets", "logo.png"));
+  candidates.push(path.resolve(process.cwd(), "dry_cleaner_api", "assets", "logo.png"));
   // common locations
   // repo root layout
   candidates.push(
@@ -75,7 +78,11 @@ export const createInvoice = async (req, res) => {
 
     const total = subtotal - discount;
 
+    const invoiceNumber = await getNextInvoiceNumber();
+    const formattedInvoiceNumber = `INV-${String(invoiceNumber).padStart(4, '0')}`;
+
     const invoice = await Invoice.create({
+      invoiceNumber: formattedInvoiceNumber,
       customerId: customer._id,
       items: invoiceItems,
       subtotal,
@@ -88,13 +95,12 @@ export const createInvoice = async (req, res) => {
     await invoice.populate("customerId", "name phone email");
 
     const totalClothCount = invoiceItems.reduce((sum, item) => sum + item.quantity, 0);
-    const invoiceNumber = invoice._id.toString().slice(-8).toUpperCase();
 
     await Job.create({
       invoiceId: invoice._id,
       customerName: customer.name,
       customerPhone: customer.phone,
-      invoiceNumber: invoiceNumber,
+      invoiceNumber: formattedInvoiceNumber,
       submittedDate: new Date(),
       status: "waiting",
       notedClothCount: totalClothCount,
@@ -179,17 +185,11 @@ export const executeInvoiceServices = async (req, res) => {
 
       await serviceExecution[0].save({ session });
 
-      const swDesc = `Matumizi ya bidhaa za ghala kwa huduma ya ${service.name} (kutoka invoice #${invoice._id
-        .toString()
-        .slice(-5)
-        .padStart(5, "0")}, idadi ${qty.toFixed(3)}).`;
-
       await Expense.create(
         [
           {
             category: "Service Execution",
             amount: totalExpenseAmount,
-            description: swDesc,
             date: new Date(),
             serviceExecution: serviceExecution[0]._id,
             invoice: invoice._id,
@@ -222,11 +222,34 @@ export const getInvoices = async (req, res) => {
 
     if (customerId) query.customerId = customerId;
     if (paymentStatus) query.paymentStatus = paymentStatus;
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+
+    // Check if dates are provided (not empty strings)
+    const hasStartDate = startDate && startDate.trim() !== "";
+    const hasEndDate = endDate && endDate.trim() !== "";
+
+    let dateQuery = {};
+    if (hasStartDate || hasEndDate) {
+      // Use provided date range
+      if (hasStartDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        dateQuery.$gte = start;
+      }
+      if (hasEndDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        dateQuery.$lte = end;
+      }
+    } else {
+      // Default to today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      dateQuery.$gte = today;
+      dateQuery.$lte = tomorrow;
     }
+    query.createdAt = dateQuery;
 
     const invoices = await Invoice.find(query)
       .populate("customerId", "name phone email")
@@ -381,7 +404,7 @@ export const sendInvoiceViaWhatsAppLink = async (req, res) => {
 Hello ${invoice.customerId.name},
 Here is your invoice from Oweru International LTD.
 
-Invoice ID: ${invoice._id}
+Invoice Number: ${invoice.invoiceNumber}
 Total: ${invoice.total} TZS
 
 Download PDF:
@@ -396,5 +419,149 @@ ${pdfUrl}
   } catch (err) {
     console.error("WhatsApp send error:", err);
     res.status(500).json({ message: "Failed to prepare WhatsApp invoice" });
+  }
+};
+
+export const generateReceiptPdf = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id).populate(
+      "customerId",
+      "name phone email",
+    );
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    if (invoice.paymentStatus !== "PAID") {
+      return res.status(400).json({ message: "Invoice is not paid yet" });
+    }
+
+    const logoData = tryReadLogo();
+    const pdf = await generatePdfFromReceipt(invoice, {
+      name: "Oweru International LTD",
+      accountNumber: process.env.COMPANY_ACCOUNT || "123456789",
+      accountName: process.env.COMPANY_ACCOUNT_NAME || "Oweru International LTD",
+      bankName: process.env.COMPANY_BANK || "Any Bank",
+      logo: logoData,
+      phone: process.env.COMPANY_PHONE || "+255 711 890 764",
+      email: process.env.COMPANY_EMAIL || "info@oweru.com",
+      address: process.env.COMPANY_ADDRESS || "Tancot House, Posta - Dar es Salaam, Tanzania",
+      pobox: process.env.COMPANY_POBOX || "P.O. Box: 7563, Dar es Salaam",
+      website: process.env.COMPANY_WEBSITE || "www.oweru.com",
+    });
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename=receipt-${invoice._id}.pdf`,
+    });
+
+    res.send(pdf);
+  } catch (error) {
+    console.error("Receipt PDF generation failed:", error);
+    res.status(500).json({ message: "Failed to generate receipt PDF" });
+  }
+};
+
+export const generateReceiptFile = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id).populate(
+      "customerId",
+      "name phone email address"
+    );
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    if (invoice.paymentStatus !== "PAID") {
+      return res.status(400).json({ message: "Invoice is not paid yet" });
+    }
+
+    const outDir = path.join(process.cwd(), "tmp", "receipts");
+    const outPath = path.join(outDir, `${invoice._id}.pdf`);
+
+    if (fs.existsSync(outPath)) {
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      return res.json({
+        success: true,
+        url: `${baseUrl}/receipts/files/${invoice._id}.pdf`,
+      });
+    }
+
+    const logoData = tryReadLogo();
+    const pdfBuffer = await generatePdfFromReceipt(invoice, {
+      name: "Oweru International LTD",
+      accountNumber: process.env.COMPANY_ACCOUNT || "123456789",
+      accountName: process.env.COMPANY_ACCOUNT_NAME || "Oweru International LTD",
+      bankName: process.env.COMPANY_BANK || "Any Bank",
+      logo: logoData,
+      phone: process.env.COMPANY_PHONE || "+255 711 890 764",
+      email: process.env.COMPANY_EMAIL || "info@oweru.com",
+      address: process.env.COMPANY_ADDRESS || "Tancot House, Posta - Dar es Salaam, Tanzania",
+      pobox: process.env.COMPANY_POBOX || "P.O. Box: 7563, Dar es Salaam",
+      website: process.env.COMPANY_WEBSITE || "www.oweru.com",
+    });
+    fs.mkdirSync(outDir, { recursive: true });
+    fs.writeFileSync(outPath, pdfBuffer);
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    res.json({
+      success: true,
+      url: `${baseUrl}/receipts/files/${invoice._id}.pdf`,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to generate receipt" });
+  }
+};
+
+export const sendReceiptViaWhatsApp = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id).populate(
+      "customerId",
+      "name phone",
+    );
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    if (invoice.paymentStatus !== "PAID") {
+      return res.status(400).json({ message: "Invoice is not paid yet" });
+    }
+
+    const outDir = path.join(ROOT_DIR, "tmp", "receipts");
+    const outPath = path.join(outDir, `${invoice._id}.pdf`);
+
+    fs.mkdirSync(outDir, { recursive: true });
+
+    if (!fs.existsSync(outPath)) {
+      const pdfBuffer = await generatePdfFromReceipt(invoice);
+      fs.writeFileSync(outPath, pdfBuffer);
+    }
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const receiptUrl = `${baseUrl}/receipts/files/${invoice._id}.pdf`;
+
+    const message = `
+Hello ${invoice.customerId.name},
+Your payment has been received! Thank you for choosing Oweru International LTD.
+
+Receipt Number: ${invoice.invoiceNumber}
+Amount Paid: ${invoice.total} TZS
+
+View your receipt here:
+${receiptUrl}
+
+Thank you for your business!
+    `.trim();
+
+    const whatsappLink = `https://wa.me/${
+      invoice.customerId.phone
+    }?text=${encodeURIComponent(message)}`;
+
+    res.json({ success: true, whatsappLink });
+  } catch (err) {
+    console.error("WhatsApp receipt send error:", err);
+    res.status(500).json({ message: "Failed to send receipt via WhatsApp" });
   }
 };
