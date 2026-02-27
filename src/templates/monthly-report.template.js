@@ -421,19 +421,26 @@ export const monthlyReportTemplate = (reportData, company = {}) => {
         <tr>
           <th>Date</th>
           <th>Category</th>
-          <th>Description</th>
+          <th>Inventory Used</th>
           <th class="num">Amount</th>
         </tr>
       </thead>
       <tbody>
-        ${allExpenses.length > 0 ? allExpenses.map(expense => `
+        ${allExpenses.length > 0 ? allExpenses.map(expense => {
+          const inventoryList = expense.inventoryUsageDetails && expense.inventoryUsageDetails.length > 0 
+            ? expense.inventoryUsage.map(iu => {
+                const inv = expense.inventoryUsageDetails.find(i => i._id.toString() === iu.inventory?.toString());
+                return inv ? `${inv.name}: ${iu.quantityUsed} ${inv.unit || ''}` : null;
+              }).filter(Boolean).join(', ')
+            : '-';
+          return `
           <tr>
             <td>${formatDate(expense.date)}</td>
             <td>${expense.category || 'Other'}</td>
-            <td>${expense.description}</td>
+            <td>${inventoryList}</td>
             <td class="num">${formatTZS(expense.amount)}</td>
           </tr>
-        `).join('') : '<tr><td colspan="4" class="no-data">No expenses found</td></tr>'}
+        `}).join('') : '<tr><td colspan="4" class="no-data">No expenses found</td></tr>'}
       </tbody>
     </table>
   </div>
