@@ -13,6 +13,7 @@ export const markInvoiceAsPaid = async (req, res) => {
   }
 
   invoice.paymentStatus = "PAID";
+  invoice.paidAt = new Date();
   await invoice.save();
 
   res.json(invoice);

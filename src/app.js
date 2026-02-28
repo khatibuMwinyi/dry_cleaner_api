@@ -24,6 +24,10 @@ app.use(
   "/invoices/files",
   express.static(path.join(ROOT_DIR, "tmp", "invoices"))
 );
+app.use(
+  "/receipts/files",
+  express.static(path.join(ROOT_DIR, "tmp", "receipts"))
+);
 app.use("/api/customers", customerRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/invoices", invoiceRoutes);
