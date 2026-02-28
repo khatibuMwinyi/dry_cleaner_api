@@ -4,7 +4,6 @@ const expenseSchema = new mongoose.Schema(
   {
     category: { type: String, required: true, trim: true },
     amount: { type: Number, required: true },
-    description: { type: String, trim: true },
     date: { type: Date, required: true },
 
     receiptUrl: {

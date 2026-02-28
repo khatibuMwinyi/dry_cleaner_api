@@ -86,18 +86,12 @@ export const executeService = async (req, res) => {
 
     await serviceExecution[0].save({ session });
 
-    // Swahili description for expenses
-    const swDesc = `Matumizi ya bidhaa za ghala kwa huduma ya ${service.name} (idadi ${Number(
-      quantity,
-    ).toFixed(3)}).`;
-
     // Create expense record linked to service execution
     const expense = await Expense.create(
       [
         {
           category: "Service Execution",
           amount: totalExpenseAmount,
-          description: swDesc,
           date: new Date(),
           serviceExecution: serviceExecution[0]._id,
           invoice: invoiceId || undefined,

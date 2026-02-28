@@ -8,7 +8,6 @@ export const createExpense = async (req, res) => {
     const {
       category,
       amount,
-      description,
       date,
       inventoryUsage = [],
     } = req.body;

@@ -7,6 +7,10 @@ import {
   getCustomerExpenses,
   getMonthlyReportData,
   generateMonthlyReportPDF,
+  getWeeklyReportData,
+  generateWeeklyReportPDF,
+  getDailyReportData,
+  generateDailyReportPDF,
 } from "../controllers/analytics.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
@@ -33,6 +37,30 @@ router.post(
   requireAuth,
   requireRole("ADMIN", "MODERATOR"),
   generateMonthlyReportPDF,
+);
+router.post(
+  "/reports/weekly-pdf",
+  requireAuth,
+  requireRole("ADMIN", "MODERATOR"),
+  getWeeklyReportData,
+);
+router.post(
+  "/reports/weekly-pdf/download",
+  requireAuth,
+  requireRole("ADMIN", "MODERATOR"),
+  generateWeeklyReportPDF,
+);
+router.post(
+  "/reports/daily-pdf",
+  requireAuth,
+  requireRole("ADMIN", "MODERATOR"),
+  getDailyReportData,
+);
+router.post(
+  "/reports/daily-pdf/download",
+  requireAuth,
+  requireRole("ADMIN", "MODERATOR"),
+  generateDailyReportPDF,
 );
 
 export default router;
