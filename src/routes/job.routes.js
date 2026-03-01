@@ -13,13 +13,13 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
-router.get("/", requireAuth, requireRole("ADMIN", "CLEANER", "MODERATOR"), getJobs);
-router.get("/invoice/:invoiceId", requireAuth, requireRole("ADMIN", "CLEANER", "MODERATOR"), getJobByInvoiceId);
-router.get("/:id", requireAuth, requireRole("ADMIN", "CLEANER", "MODERATOR"), getJobById);
-router.patch("/:id/receive", requireAuth, requireRole("CLEANER"), receiveJob);
-router.patch("/:id/execute", requireAuth, requireRole("CLEANER"), executeJob);
-router.patch("/:id/verify", requireAuth, requireRole("ADMIN"), verifyJob);
-router.patch("/:id/deny", requireAuth, requireRole("ADMIN", "CLEANER"), denyJob);
-router.post("/:id/send-pickup-notification", requireAuth, requireRole("ADMIN"), sendPickupNotification);
+router.get("/", requireAuth, requireRole("CLERK", "OPERATOR", "ADMIN"), getJobs);
+router.get("/invoice/:invoiceId", requireAuth, requireRole("CLERK", "OPERATOR", "ADMIN"), getJobByInvoiceId);
+router.get("/:id", requireAuth, requireRole("CLERK", "OPERATOR", "ADMIN"), getJobById);
+router.patch("/:id/receive", requireAuth, requireRole("OPERATOR"), receiveJob);
+router.patch("/:id/execute", requireAuth, requireRole("OPERATOR"), executeJob);
+router.patch("/:id/verify", requireAuth, requireRole("CLERK"), verifyJob);
+router.patch("/:id/deny", requireAuth, requireRole("CLERK", "OPERATOR"), denyJob);
+router.post("/:id/send-pickup-notification", requireAuth, requireRole("CLERK"), sendPickupNotification);
 
 export default router;

@@ -16,50 +16,50 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
-router.get("/financial", requireAuth, requireRole("ADMIN", "MODERATOR"), getFinancialAnalytics);
-router.get("/daily", requireAuth, requireRole("ADMIN", "MODERATOR"), getDailyAnalytics);
-router.get("/monthly", requireAuth, requireRole("ADMIN", "MODERATOR"), getMonthlyAnalytics);
-router.get("/top-customers", requireAuth, requireRole("ADMIN", "MODERATOR"), getTopCustomers);
+router.get("/financial", requireAuth, requireRole("ADMIN", "CLERK"), getFinancialAnalytics);
+router.get("/daily", requireAuth, requireRole("ADMIN", "CLERK"), getDailyAnalytics);
+router.get("/monthly", requireAuth, requireRole("ADMIN", "CLERK"), getMonthlyAnalytics);
+router.get("/top-customers", requireAuth, requireRole("ADMIN", "CLERK"), getTopCustomers);
 router.get(
   "/customers/:customerId/expenses",
   requireAuth,
-  requireRole("ADMIN", "MODERATOR"),
+  requireRole("ADMIN", "CLERK"),
   getCustomerExpenses,
 );
 router.post(
   "/reports/monthly-pdf",
   requireAuth,
-  requireRole("ADMIN", "MODERATOR"),
+  requireRole("ADMIN", "CLERK"),
   getMonthlyReportData,
 );
 router.post(
   "/reports/monthly-pdf/download",
   requireAuth,
-  requireRole("ADMIN", "MODERATOR"),
+  requireRole("ADMIN", "CLERK"),
   generateMonthlyReportPDF,
 );
 router.post(
   "/reports/weekly-pdf",
   requireAuth,
-  requireRole("ADMIN", "MODERATOR"),
+  requireRole("ADMIN", "CLERK"),
   getWeeklyReportData,
 );
 router.post(
   "/reports/weekly-pdf/download",
   requireAuth,
-  requireRole("ADMIN", "MODERATOR"),
+  requireRole("ADMIN", "CLERK"),
   generateWeeklyReportPDF,
 );
 router.post(
   "/reports/daily-pdf",
   requireAuth,
-  requireRole("ADMIN", "MODERATOR"),
+  requireRole("ADMIN", "CLERK"),
   getDailyReportData,
 );
 router.post(
   "/reports/daily-pdf/download",
   requireAuth,
-  requireRole("ADMIN", "MODERATOR"),
+  requireRole("ADMIN", "CLERK"),
   generateDailyReportPDF,
 );
 

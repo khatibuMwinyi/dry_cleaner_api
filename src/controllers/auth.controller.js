@@ -35,7 +35,7 @@ export const login = async (req, res) => {
   }
 };
 
-// Moderator-only: create a new admin or cleaner
+// Admin-only: create a new clerk or operator
 export const registerUser = async (req, res) => {
   try {
     const { email, password, role } = req.body || {};
@@ -45,8 +45,8 @@ export const registerUser = async (req, res) => {
     if (String(password).length < 6) {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
-    if (!["ADMIN", "CLEANER"].includes(role)) {
-      return res.status(400).json({ message: "Role must be ADMIN or CLEANER" });
+    if (!["CLERK", "OPERATOR"].includes(role)) {
+      return res.status(400).json({ message: "Role must be CLERK or OPERATOR" });
     }
 
     const normalized = email.toLowerCase().trim();

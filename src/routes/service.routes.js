@@ -12,12 +12,12 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 const router = Router();
 
 router.get("/", requireAuth, getServices);
-router.post("/", requireAuth, requireRole("MODERATOR"), createService);
-router.put("/:id", requireAuth, requireRole("MODERATOR"), updateService);
-router.delete("/:id", requireAuth, requireRole("MODERATOR"), deleteService);
+router.post("/", requireAuth, requireRole("ADMIN"), createService);
+router.put("/:id", requireAuth, requireRole("ADMIN"), updateService);
+router.delete("/:id", requireAuth, requireRole("ADMIN"), deleteService);
 
-// Moderator-only execution
-router.post("/:serviceId/execute", requireAuth, requireRole("MODERATOR"), executeService);
+// Admin-only execution
+router.post("/:serviceId/execute", requireAuth, requireRole("ADMIN"), executeService);
 
 // Allow both roles to view executions
 router.get("/executions", requireAuth, getServiceExecutions);
