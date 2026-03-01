@@ -236,8 +236,8 @@ export const verifyJob = async (req, res) => {
       job.status = "success";
       job.verifiedDate = new Date();
     } else if (status === "denied") {
-      job.status = "denied-admin";
-      job.deniedBy = "admin";
+      job.status = "denied-clerk";
+      job.deniedBy = "clerk";
       job.deniedReason = notes || "Verification failed";
     } else {
       return res.status(400).json({ message: "Invalid status. Use 'success' or 'denied'" });
@@ -261,14 +261,14 @@ export const denyJob = async (req, res) => {
     }
 
     const userRole = req.user?.role?.toLowerCase();
-    if (userRole === "admin") {
-      job.status = "denied-admin";
-      job.deniedBy = "admin";
-    } else if (userRole === "cleaner") {
-      job.status = "denied-cleaner";
-      job.deniedBy = "cleaner";
+    if (userRole === "clerk") {
+      job.status = "denied-clerk";
+      job.deniedBy = "clerk";
+    } else if (userRole === "operator") {
+      job.status = "denied-operator";
+      job.deniedBy = "operator";
     } else {
-      return res.status(403).json({ message: "Only admin or cleaner can deny a job" });
+      return res.status(403).json({ message: "Only clerk or operator can deny a job" });
     }
 
     job.deniedReason = reason || "Job denied";

@@ -24,7 +24,7 @@ const jobSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["waiting", "received", "complete", "success", "denied-admin", "denied-cleaner"],
+      enum: ["waiting", "received", "complete", "success", "denied-clerk", "denied-operator"],
       default: "waiting",
     },
     receivedDate: {
@@ -46,7 +46,7 @@ const jobSchema = new mongoose.Schema(
     },
     deniedBy: {
       type: String,
-      enum: ["admin", "cleaner", null],
+      enum: ["clerk", "operator", null],
       default: null,
     },
     deniedReason: {
