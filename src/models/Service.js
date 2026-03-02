@@ -9,6 +9,17 @@ const serviceSchema = new mongoose.Schema(
       unique: true,
     },
 
+    category: {
+      type: String,
+      required: true,
+      enum: ["MEN", "WOMEN", "KIDS", "BEDDING", "CURTAINS", "HOUSEHOLD ITEMS"],
+    },
+
+    subCategory: {
+      type: String,
+      required: true,
+    },
+
     basePrice: {
       type: Number,
       required: true,

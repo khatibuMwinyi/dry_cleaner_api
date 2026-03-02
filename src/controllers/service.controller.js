@@ -5,17 +5,19 @@ import InventoryConsumption from "../models/InventoryConsumption.js";
 import ServiceExecution from "../models/ServiceExecution.js";
 export const createService = async (req, res) => {
   try {
-    const { name, basePrice, consumables } = req.body;
+    const { name, category, subCategory, basePrice, consumables } = req.body;
 
-    if (!name || basePrice == null) {
+    if (!name || basePrice == null || !category || !subCategory) {
       return res.status(400).json({
-        message: "Service name and base price are required",
+        message: "Service name, category, subCategory and base price are required",
       });
     }
 
     // Create service
     const service = await Service.create({
       name: name.trim(),
+      category: category.trim(),
+      subCategory: subCategory.trim(),
       basePrice: Number(basePrice),
       consumables: consumables || []
     });
