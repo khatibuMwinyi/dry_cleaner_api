@@ -1,3 +1,10 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export const invoiceTemplate = ({ invoice, company = {} }) => {
   const formatTZS = (amount) =>
     new Intl.NumberFormat("sw-TZ", {
@@ -10,8 +17,18 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
     if (!date) return "—";
     const d = new Date(date);
     const months = [
-      "JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE",
-      "JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"
+      "JANUARY",
+      "FEBRUARY",
+      "MARCH",
+      "APRIL",
+      "MAY",
+      "JUNE",
+      "JULY",
+      "AUGUST",
+      "SEPTEMBER",
+      "OCTOBER",
+      "NOVEMBER",
+      "DECEMBER",
     ];
     return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
   };
@@ -21,6 +38,47 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
   const invoiceNumber =
     invoice.invoiceNumber ||
     `INV-${invoice._id.toString().slice(-4).padStart(4, "0")}`;
+
+  // Prepare logo source: prefer data URI for local files so Puppeteer can render without network
+  let logoSrc = company.logo || null;
+
+  // Always attempt to embed the repo logo as a fallback for reliable rendering
+  const repoLogoPath = path.join(__dirname, "..", "assets", "logo.png");
+
+  const isRemoteOrData = (s) => !!s && /^data:|^https?:\/\//i.test(s);
+
+  // If company provided a logo and it's a remote URL or already data URI, use it as-is
+  if (isRemoteOrData(logoSrc)) {
+    // nothing to do
+  } else {
+    // Build candidate paths to look for a local file to embed
+    const basename = logoSrc ? path.basename(logoSrc) : "logo.png";
+    const candidates = [
+      // prefer explicit company-provided relative path
+      logoSrc ? path.resolve(logoSrc) : null,
+      // repo asset (src/assets/logo.png)
+      repoLogoPath,
+      // common locations inside project
+      path.join(process.cwd(), "dry_cleaner_api", "assets", basename),
+      path.join(process.cwd(), "dry_cleaner_api", "src", "assets", basename),
+      path.join(process.cwd(), "assets", basename),
+      path.join(process.cwd(), "src", "assets", basename),
+      path.resolve(process.cwd(), logoSrc || ""),
+    ].filter(Boolean);
+
+    for (const p of candidates) {
+      try {
+        if (fs.existsSync(p)) {
+          const buf = fs.readFileSync(p);
+          const ext = (path.extname(p) || ".png").replace(".", "") || "png";
+          logoSrc = `data:image/${ext};base64,${buf.toString("base64")}`;
+          break;
+        }
+      } catch (e) {
+        // ignore and try next candidate
+      }
+    }
+  }
 
   return `
 <!DOCTYPE html>
@@ -188,7 +246,8 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
   footer {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    /* make the right footer pattern match the sidebar width (320px) */
+    grid-template-columns: 1fr 320px;
   }
 
   .footer-left {
@@ -200,8 +259,8 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
   }
 
   .logo-container {
-    width: 100px;
-    height: 60px;
+    width: 120px;
+    height: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -210,12 +269,19 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
     font-weight: 900;
     font-size: 20px;
     border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .logo-container.logo-image {
+    background: transparent;
+    padding: 6px;
   }
 
   .logo-container img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+    display: block;
   }
 
   .footer-info strong {
@@ -278,7 +344,7 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
             <td class="num">${it.quantity}</td>
             <td class="num">${formatTZS(it.unitPrice)}</td>
             <td class="num">${formatTZS(it.totalPrice)}</td>
-          </tr>`
+          </tr>`,
           )
           .join("")}
       </tbody>
@@ -331,8 +397,8 @@ export const invoiceTemplate = ({ invoice, company = {} }) => {
   <footer>
     <div class="footer-left">
       ${
-        company.logo
-          ? `<div class="logo-container"><img src="${company.logo}" /></div>`
+        logoSrc
+          ? `<div class="logo-container logo-image"><img src="${logoSrc}" alt="logo"/></div>`
           : `<div class="logo-container">OW</div>`
       }
 

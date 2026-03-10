@@ -65,6 +65,8 @@ export const generatePdfFromInvoice = async (invoice, company = {}) => {
         bottom: "0px",
         left: "0px",
       },
+      // ensure background colors/images in CSS are printed
+      printBackground: true,
     });
 
     await browser.close();
@@ -150,7 +152,10 @@ export const generatePdfFromReceipt = async (invoice, company = {}) => {
   }
 };
 
-export const generatePdfFromMonthlyReport = async (reportData, company = {}) => {
+export const generatePdfFromMonthlyReport = async (
+  reportData,
+  company = {},
+) => {
   let browser;
   try {
     // Generate HTML from template
