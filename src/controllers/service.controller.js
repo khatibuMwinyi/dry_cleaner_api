@@ -5,7 +5,7 @@ import InventoryConsumption from "../models/InventoryConsumption.js";
 import ServiceExecution from "../models/ServiceExecution.js";
 export const createService = async (req, res) => {
   try {
-    const { name, category, subCategory, basePrice, consumables } = req.body;
+    const { name, category, subCategory, basePrice, consumables, solventUsed } = req.body;
 
     if (!name || basePrice == null || !category || !subCategory) {
       return res.status(400).json({
@@ -19,6 +19,7 @@ export const createService = async (req, res) => {
       category: category.trim(),
       subCategory: subCategory.trim(),
       basePrice: Number(basePrice),
+      solventUsed: solventUsed ? Number(solventUsed) : 0,
       consumables: consumables || []
     });
 

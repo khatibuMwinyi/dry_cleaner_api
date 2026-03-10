@@ -17,28 +17,15 @@ const ROOT_DIR = path.resolve(process.cwd());
 const tryReadLogo = () => {
   const candidates = [];
   if (process.env.LOGO_PATH) candidates.push(process.env.LOGO_PATH);
-  // assets folder (recommended)
   candidates.push(path.resolve(process.cwd(), "assets", "logo.png"));
   candidates.push(path.resolve(process.cwd(), "dry_cleaner_api", "assets", "logo.png"));
-  // common locations
-  // repo root layout
-  candidates.push(
-    path.resolve(process.cwd(), "dry_cleaner_api", "src", "logo.png"),
-  );
-  // when cwd is already dry_cleaner_api
+  candidates.push(path.resolve(process.cwd(), "dry_cleaner_api", "src", "logo.png"));
   candidates.push(path.resolve(process.cwd(), "src", "logo.png"));
   candidates.push(path.resolve(process.cwd(), "logo.png"));
-  candidates.push(
-    path.resolve(process.cwd(), "backend", "src", "assets", "logo.png"),
-  );
+  candidates.push(path.resolve(process.cwd(), "backend", "src", "assets", "logo.png"));
   candidates.push(path.resolve(process.cwd(), "backend", "logo.png"));
-  candidates.push(
-    path.resolve(process.cwd(), "frontend", "src", "assets", "logo.png"),
-  );
-  candidates.push(
-    path.resolve(process.cwd(), "dry_cleaner_ui", "src", "assets", "logo.svg"),
-  );
-  // when cwd is already dry_cleaner_ui
+  candidates.push(path.resolve(process.cwd(), "frontend", "src", "assets", "logo.png"));
+  candidates.push(path.resolve(process.cwd(), "dry_cleaner_ui", "src", "assets", "logo.svg"));
   candidates.push(path.resolve(process.cwd(), "src", "assets", "logo.svg"));
 
   for (const p of candidates) {
